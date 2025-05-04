@@ -1,5 +1,10 @@
 import random
 import copy
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
 
 def is_valid(grid, row, col, num): #checks if the number is valid in the position
     for x in range(9):
@@ -180,29 +185,33 @@ def get_hint(puzzle, solution): #returns a random hint from the solution -- not 
     # Return a random empty cell and its solution
     return random.choice(empty_cells)
 
+@app.route('/api/generate', methods=['GET'])
+def api_generate():
+    difficulty = request.args.get('difficulty', default=40, type=int)
+    puzzle, solution = generate_puzzle(difficulty)
+    return jsonify({
+        'puzzle': puzzle,
+        'solution': solution
+    })
+
+@app.route('/api/hint', methods=['POST'])
+def api_hint():
+    data = request.get_json()
+    puzzle = data.get('puzzle')
+    solution = data.get('solution')
+    
+    if not puzzle or not solution:
+        return jsonify({'error': 'Puzzle and solution are required'}), 400
+    
+    hint = get_hint(puzzle, solution)
+    if hint:
+        row, col, num = hint
+        return jsonify({
+            'row': row,
+            'col': col,
+            'number': num
+        })
+    return jsonify({'error': 'No hints available'}), 404
+
 if __name__ == "__main__":
-    # Generate a puzzle with difficulty level (number of empty cells)
-    puzzle, solution = generate_puzzle(difficulty=40)
-    
-    print("Generated Sudoku Puzzle:")
-    print_grid(puzzle)
-    print("\nSolution:")
-    print_grid(solution)
-    
-    while True:
-        user_input = input("\nEnter 'hint' for a hint, 'solution' to see the full solution, or 'quit' to exit: ").lower()
-        
-        if user_input == 'quit':
-            break
-        elif user_input == 'hint':
-            hint = get_hint(puzzle, solution)
-            if hint:
-                row, col, num = hint
-                print(f"\nHint: Place {num} at position ({row+1}, {col+1})")
-            else:
-                print("\nNo more hints available - puzzle is complete!")
-        elif user_input == 'solution':
-            print("\nFull Solution:")
-            print_grid(solution)
-        else:
-            print("\nInvalid input. Please enter 'hint', 'solution', or 'quit'")
+    app.run(debug=True, port=5000)
