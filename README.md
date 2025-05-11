@@ -22,3 +22,8 @@ en0:
 * https://aiengineering.academy/Agents/MCP/CreateMCPServe/#understanding-mcp-and-its-relevance
 * https://composio.dev/blog/mcp-server-step-by-step-guide-to-building-from-scrtch/
 * https://thenewstack.io/tutorial-build-a-simple-mcp-server-with-claude-desktop/
+
+### MCP Client
+* Claude for Desktop
+* Windsurf
+* Cursor
