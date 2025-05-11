@@ -27,3 +27,24 @@ en0:
 * Claude for Desktop
 * Windsurf
 * Cursor
+
+### MCP Config
+
+```
+{
+    "mcpServers": {
+      "sudoku": {
+        "command": "/usr/bin/python",
+        "args": [
+          "/Users/yunhan/mcp/mcp_sudoku.py"
+        ]
+      },
+      "guess": {
+        "command": "/usr/bin/python",
+        "args": [
+          "/Users/yunhan/mcp/mcp_guess.py"
+        ]
+      }
+    }
+} 
+```
