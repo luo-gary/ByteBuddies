@@ -9,6 +9,13 @@
 % python ...
 ```
 
+## IP Address
+```
+% ifconfig
+en0:
+  192.168.x.x
+```
+
 ## MCP
 * https://modelcontextprotocol.io/quickstart/server
 * https://www.digitalocean.com/community/tutorials/mcp-server-python
