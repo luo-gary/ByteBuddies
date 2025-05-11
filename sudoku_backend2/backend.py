@@ -6,17 +6,43 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
-def is_valid(grid, row, col, num): #checks if the number is valid in the position
+@app.route('/api/validate', methods=['POST'])
+def validate_puzzle():
+    puzzle = request.get_json()
+    
+    if not puzzle:
+        return jsonify({'error': 'Puzzle is required', 'valid': False}), 400
+    
+    # Check if the last non-zero number is valid in its position
+    for i in range(9):
+        for j in range(9):
+            if puzzle[i][j] != 0:  # Only check non-zero numbers
+                if not is_valid(puzzle, i, j, puzzle[i][j]):
+                    return jsonify({'valid': False})
+    
+    return jsonify({'valid': True})
+
+def is_valid(grid, row, col, num):
+    # Check row
     for x in range(9):
-        if grid[row][x] == num:
+        if x != col and grid[row][x] == num:  # Skip the current position
+            print("Failed, coordinates", row, ',', col, 'at', 'row', x, 'num is', num)
             return False
+            
+    # Check column
     for x in range(9):
-        if grid[x][col] == num:
+        if x != row and grid[x][col] == num:  # Skip the current position
+            print("Failed, coordinates", row, ',', col, 'at', 'col', x, 'num is', num)
             return False
+            
+    # Check 3x3 box
     start_row, start_col = 3 * (row // 3), 3 * (col // 3)
     for i in range(3):
         for j in range(3):
-            if grid[i + start_row][j + start_col] == num:
+            current_row = i + start_row
+            current_col = j + start_col
+            if (current_row != row or current_col != col) and grid[current_row][current_col] == num:  # Skip the current position
+                print('Failed in 3x3 box at', current_row, ',', current_col)
                 return False
     
     return True
@@ -142,6 +168,7 @@ def count_solutions(grid):
 def generate_puzzle(difficulty=40):
     solution = generate_solved_grid()
     puzzle = copy.deepcopy(solution)
+    print("Initial solution:", solution)  # Debug print
     
     cells = [(i, j) for i in range(9) for j in range(9)]
     random.shuffle(cells)
@@ -158,6 +185,7 @@ def generate_puzzle(difficulty=40):
         else:
             cells.remove((i, j))
     
+    print("Final puzzle:", puzzle)  # Debug print
     return puzzle, solution
 
 def print_grid(grid):
@@ -189,10 +217,15 @@ def get_hint(puzzle, solution): #returns a random hint from the solution -- not 
 def api_generate():
     difficulty = request.args.get('difficulty', default=40, type=int)
     puzzle, solution = generate_puzzle(difficulty)
-    return jsonify({
+    print("Type of puzzle:", type(puzzle))  # Debug print
+    print("Type of first row:", type(puzzle[0]))  # Debug print
+    print("Type of first element:", type(puzzle[0][0]))  # Debug print
+    print("Complete puzzle data:", puzzle)  # Debug print
+    response_data = {
         'puzzle': puzzle,
         'solution': solution
-    })
+    }
+    return jsonify(response_data)
 
 @app.route('/api/hint', methods=['POST'])
 def api_hint():
@@ -214,4 +247,4 @@ def api_hint():
     return jsonify({'error': 'No hints available'}), 404
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', debug=True, port=5000)
+    app.run(host='0.0.0.0', debug=True, port=5678)

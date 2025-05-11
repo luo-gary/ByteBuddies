@@ -5,22 +5,36 @@ import 'dart:convert';
 
 class SudokuService {
   static const String baseUrl =
-      'http://localhost:8000'; // Change this to your backend URL
+      'http://localhost:5678'; // Change this to your backend URL
 
   // Get a new puzzle
   static Future<List<List<int?>>> getNewPuzzle() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/puzzle'));
+      final response = await http.get(Uri.parse('$baseUrl/api/generate'));
+      print('Response status: ${response.statusCode}'); // Debug print
+      print('Response body: ${response.body}'); // Debug print
+
       if (response.statusCode == 200) {
-        final List<List<dynamic>> data = json.decode(response.body);
-        return data
-            .map((row) => row.map((cell) => cell as int?).toList())
-            .toList();
-      } else {
-        throw Exception('Failed to load puzzle');
+        final data = json.decode(response.body);
+        print('Raw response data: $data'); // Debug print
+
+        // Convert the puzzle data to the correct type
+        final List<dynamic> outerList = data['puzzle'];
+        final List<List<int?>> puzzleData = outerList.map((row) {
+          final List<dynamic> innerList = row;
+          return innerList
+              .map((cell) => cell == 0 ? null : cell as int)
+              .toList();
+        }).toList();
+
+        print('Converted puzzle data: $puzzleData'); // Debug print
+        return puzzleData;
       }
+      print('Non-200 status code: ${response.statusCode}'); // Debug print
+      throw Exception('Failed to load puzzle: ${response.statusCode}');
     } catch (e) {
-      // Return a default puzzle if the server is not available
+      print('Error loading puzzle: $e'); // Add error logging
+      // Only return default puzzle if we actually failed to get the data
       return [
         [5, 3, null, null, 7, null, null, null, null],
         [6, null, null, 1, 9, 5, null, null, null],
@@ -35,20 +49,29 @@ class SudokuService {
     }
   }
 
+  // Convert nulls to zeros for backend
+  static List<List<int>> _convertToBackendFormat(List<List<int?>> puzzle) {
+    return puzzle.map((row) => row.map((cell) => cell ?? 0).toList()).toList();
+  }
+
   // Validate the entire puzzle
   static Future<bool> validatePuzzle(List<List<int?>> puzzle) async {
     try {
+      final backendPuzzle = _convertToBackendFormat(puzzle);
+      print('Sending puzzle for validation: $backendPuzzle'); // Debug print
       final response = await http.post(
-        Uri.parse('$baseUrl/validate'),
+        Uri.parse('$baseUrl/api/validate'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(puzzle),
+        body: json.encode(backendPuzzle),
       );
+      print('Validation response: ${response.body}'); // Debug print
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         return data['valid'] as bool;
       }
       return false;
     } catch (e) {
+      print('Validation error: $e');
       return false;
     }
   }
@@ -57,10 +80,11 @@ class SudokuService {
   static Future<Map<String, dynamic>?> getHint(
       List<List<int?>> currentPuzzle) async {
     try {
+      final backendPuzzle = _convertToBackendFormat(currentPuzzle);
       final response = await http.post(
-        Uri.parse('$baseUrl/hint'),
+        Uri.parse('$baseUrl/api/hint'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(currentPuzzle),
+        body: json.encode(backendPuzzle),
       );
       if (response.statusCode == 200) {
         return json.decode(response.body);
@@ -152,6 +176,7 @@ class SudokuGrid extends StatelessWidget {
   final List<List<bool>> invalidCells;
   final int? selectedRow;
   final int? selectedCol;
+  final bool isComplete;
 
   const SudokuGrid({
     super.key,
@@ -161,6 +186,7 @@ class SudokuGrid extends StatelessWidget {
     required this.invalidCells,
     required this.selectedRow,
     required this.selectedCol,
+    required this.isComplete,
   });
 
   bool isInitialValue(int row, int col) {
@@ -191,9 +217,13 @@ class SudokuGrid extends StatelessWidget {
               onTap: isInitial ? null : () => onCellTap(row, col),
               child: Container(
                 decoration: BoxDecoration(
-                  color: isSelected && !isInitial
-                      ? Colors.white
-                      : Colors.transparent,
+                  color: isComplete
+                      ? Colors.green[50]
+                      : (invalidCells[row][col]
+                          ? Colors.red[50]
+                          : (isSelected && !isInitial
+                              ? Colors.white
+                              : Colors.transparent)),
                   border: isSelected && !isInitial
                       ? Border.all(color: Colors.blue.shade200, width: 2)
                       : null,
@@ -277,6 +307,7 @@ class _MainLayoutState extends State<MainLayout> {
   late List<List<int?>> sudokuBoard;
   late List<List<bool>> invalidCells;
   late final List<List<int?>> initialBoard;
+  bool isComplete = false;
 
   @override
   void initState() {
@@ -286,19 +317,25 @@ class _MainLayoutState extends State<MainLayout> {
 
   Future<void> _initializeBoard() async {
     try {
+      // Initialize with default values first
+      sudokuBoard = List.generate(9, (_) => List.generate(9, (_) => null));
+      invalidCells = List.generate(9, (_) => List.generate(9, (_) => false));
+      initialBoard = List.generate(9, (_) => List.generate(9, (_) => null));
+
       final newPuzzle = await SudokuService.getNewPuzzle();
+      print('Got new puzzle: $newPuzzle'); // Debug print
+
       setState(() {
-        initialBoard = newPuzzle;
-        sudokuBoard = List.generate(
-          9,
-          (i) => List.generate(9, (j) => initialBoard[i][j]),
-        );
-        invalidCells = List.generate(
-          9,
-          (_) => List.generate(9, (_) => false),
-        );
+        // Copy the new puzzle to both boards
+        for (var i = 0; i < 9; i++) {
+          for (var j = 0; j < 9; j++) {
+            initialBoard[i][j] = newPuzzle[i][j];
+            sudokuBoard[i][j] = newPuzzle[i][j];
+          }
+        }
       });
     } catch (e) {
+      print('Error in _initializeBoard: $e'); // Debug print
       setState(() {
         statusMessage = 'Failed to load puzzle';
       });
@@ -322,27 +359,70 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  void onNumberSubmit() {
-    setState(() {
-      if (selectedRow == null || selectedCol == null) {
+  bool _isPuzzleComplete() {
+    // Check if all cells are filled
+    for (var i = 0; i < 9; i++) {
+      for (var j = 0; j < 9; j++) {
+        if (sudokuBoard[i][j] == null) {
+          return false;
+        }
+      }
+    }
+    // Check if there are no invalid cells
+    for (var i = 0; i < 9; i++) {
+      for (var j = 0; j < 9; j++) {
+        if (invalidCells[i][j]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  Future<void> onNumberSubmit() async {
+    if (selectedRow == null || selectedCol == null) {
+      setState(() {
         statusMessage = 'Please choose a cell first';
-        return;
-      }
+      });
+      return;
+    }
 
-      if (textController.text.isEmpty) {
+    if (textController.text.isEmpty) {
+      setState(() {
         statusMessage = 'Please input a number';
-        return;
-      }
+      });
+      return;
+    }
 
-      if (initialBoard[selectedRow!][selectedCol!] != null) {
+    if (initialBoard[selectedRow!][selectedCol!] != null) {
+      setState(() {
         statusMessage = 'Cannot modify initial values';
-        return;
-      }
+      });
+      return;
+    }
 
-      // All validation passed, update the grid
-      sudokuBoard[selectedRow!][selectedCol!] = int.parse(textController.text);
-      statusMessage = '';
+    final number = int.parse(textController.text);
+
+    setState(() {
+      sudokuBoard[selectedRow!][selectedCol!] = number;
       textController.clear();
+    });
+
+    // Validate the move with the backend
+    final isValid = await SudokuService.validatePuzzle(sudokuBoard);
+    print(
+        'Validation result for move at ($selectedRow, $selectedCol): $isValid');
+
+    setState(() {
+      invalidCells[selectedRow!][selectedCol!] = !isValid;
+
+      // Check if puzzle is complete after a valid move
+      if (isValid && _isPuzzleComplete()) {
+        isComplete = true;
+        statusMessage = 'Congratulations! Puzzle completed!';
+      } else {
+        statusMessage = '';
+      }
     });
   }
 
@@ -396,6 +476,7 @@ class _MainLayoutState extends State<MainLayout> {
                           invalidCells: invalidCells,
                           selectedRow: selectedRow,
                           selectedCol: selectedCol,
+                          isComplete: isComplete,
                         ),
                       ),
                     ),
@@ -439,7 +520,9 @@ class _MainLayoutState extends State<MainLayout> {
                     maxLines: 1,
                     maxLength: 1,
                     keyboardType: TextInputType.number,
-                    onSubmitted: (_) => onNumberSubmit(),
+                    onSubmitted: (_) {
+                      onNumberSubmit(); // No need to await here as we don't use the result
+                    },
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
                       OneToNineInputFormatter(),
