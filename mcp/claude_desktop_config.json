@@ -1,0 +1,10 @@
+{
+    "mcpServers": {
+        "guess": {
+            "command": "/Users/yl/workspace/kidhustle/python/venv/bin/python",
+            "args": [
+                "/Users/yl/workspace/ByteBuddies/mcp/mcp_guess.py"
+            ]
+        }
+    }
+}
