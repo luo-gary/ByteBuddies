@@ -7,7 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 import 'package:path_provider/path_provider.dart';
 import '../models/emergency_data.dart';
-import '../services/ai_service.dart';
+import '../services/openai_service.dart';
 import '../services/p2p_service.dart';
 import '../screens/emergency_result_screen.dart';
 
@@ -27,7 +27,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   String? _audioPath;
   Position? _currentPosition;
   final _audioRecorder = AudioRecorder();
-  final _aiService = AIService();
+  final _openAIService = OpenAIService();
   final _p2pService = P2PService();
   Map<String, dynamic>? _analysis;
 
@@ -53,14 +53,140 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
 
   Future<void> _getCurrentLocation() async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      setState(() {
-        _currentPosition = position;
-      });
+      // First check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        final shouldEnable = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Location Services Disabled'),
+            content: const Text(
+              'Location services are disabled. Enable location services to help emergency responders find you.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not Now'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context, true);
+                  await Geolocator.openLocationSettings();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Enable Location'),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (!shouldEnable) return;
+      }
+
+      // Check permission status
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        // Show dialog explaining why we need location
+        if (!mounted) return;
+        final shouldRequest = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Location Access Needed'),
+            content: const Text(
+              'Your location helps emergency responders find you quickly. '
+              'Without location access, we can still send your emergency alert, '
+              'but responders won\'t know where to find you.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Don\'t Allow'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Allow Location'),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (shouldRequest) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            return; // User denied after explanation
+          }
+        } else {
+          return; // User doesn't want to grant permission
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Show dialog to open settings
+        if (!mounted) return;
+        final shouldOpenSettings = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Location Access Required'),
+            content: const Text(
+              'Location access has been permanently denied. '
+              'Please enable it in settings to help emergency responders find you.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Not Now'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        ) ?? false;
+
+        if (shouldOpenSettings) {
+          await Geolocator.openAppSettings();
+        }
+        return;
+      }
+
+      // Get location if permission is granted
+      if (permission == LocationPermission.whileInUse || 
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 5),
+        );
+        setState(() {
+          _currentPosition = position;
+        });
+      }
     } catch (e) {
       debugPrint('Error getting location: $e');
+      // Show error to user
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error getting location: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -136,7 +262,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
     });
 
     try {
-      final analysis = await _aiService.analyzeEmergencyScene(
+      final analysis = await _openAIService.analyzeEmergencyScene(
         imagePath: _photoPath!,
         audioPath: _audioPath,
       );
@@ -154,10 +280,10 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   }
 
   Future<void> _sendEmergencyData() async {
-    if (_currentPosition == null || _photoPath == null) {
+    if (_photoPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please capture a photo and ensure location access is granted'),
+          content: Text('Please capture a photo first'),
           backgroundColor: Colors.red,
         ),
       );
@@ -169,19 +295,30 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
     });
 
     try {
+      // If location is null, create a position with default values
+      final position = _currentPosition ?? Position(
+        latitude: 0,
+        longitude: 0,
+        timestamp: DateTime.now(),
+        accuracy: 0,
+        altitude: 0,
+        heading: 0,
+        speed: 0,
+        speedAccuracy: 0,
+        altitudeAccuracy: 0,
+        headingAccuracy: 0,
+      );
+
       final emergencyData = EmergencyData(
         id: const Uuid().v4(),
         timestamp: DateTime.now(),
-        latitude: _currentPosition!.latitude,
-        longitude: _currentPosition!.longitude,
+        latitude: position.latitude,
+        longitude: position.longitude,
         photoPath: _photoPath,
         audioPath: _audioPath,
       );
 
       await EmergencyData.saveEmergencyData(emergencyData);
-
-      // Broadcast to nearby devices
-      await _p2pService.broadcastEmergencyData(emergencyData);
 
       if (!mounted) return;
       
@@ -189,7 +326,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
         _isProcessing = false;
       });
 
-      // Navigate to result screen instead of showing dialog
+      // Navigate to result screen
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -198,6 +335,8 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
             analysis: _analysis ?? {
               'detectedSituation': 'Emergency situation detected',
               'severity': 'Medium',
+              'description': 'Emergency situation reported',
+              'audioKeywords': <String>[],
             },
           ),
         ),
@@ -232,7 +371,6 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   void dispose() {
     _cameraController.dispose();
     _audioRecorder.dispose();
-    _aiService.dispose();
     _p2pService.stopAllEndpoints();
     super.dispose();
   }

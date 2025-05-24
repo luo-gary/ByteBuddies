@@ -57,5 +57,13 @@
 	<string>ResQ Link needs access to the local network to connect with nearby devices during emergencies when internet is not available.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>ResQ Link uses Bluetooth to discover and connect with nearby devices during emergencies.</string>
+	<key>NSNearbyInteractionUsageDescription</key>
+	<string>ResQ Link uses nearby interaction to discover and connect with other devices during emergencies.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+		<string>nearby-interaction</string>
+	</array>
 </dict>
 </plist>

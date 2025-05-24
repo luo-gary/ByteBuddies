@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/emergency_data.dart';
+import '../screens/emergency_services_screen.dart';
 
 class EmergencyResultScreen extends StatelessWidget {
   final EmergencyData emergencyData;
@@ -62,6 +63,8 @@ class EmergencyResultScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final situation = analysis['detectedSituation'] as String;
     final severity = analysis['severity'] as String;
+    final description = analysis['description'] as String;
+    final audioKeywords = analysis['audioKeywords'] as List<dynamic>;
     final safetyTips = _getSafetyTips(situation);
 
     return Scaffold(
@@ -93,8 +96,20 @@ class EmergencyResultScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     'Severity Level: $severity',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: severity.toLowerCase() == 'high' 
+                          ? Colors.red 
+                          : severity.toLowerCase() == 'medium'
+                              ? Colors.orange
+                              : Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'AI Analysis',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  Text(description),
                   const SizedBox(height: 16),
                   Text(
                     'Location',
@@ -119,8 +134,24 @@ class EmergencyResultScreen extends StatelessWidget {
                           ],
                         ),
                       )),
-                  const SizedBox(height: 24),
+                  if (audioKeywords.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Audio Analysis',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: audioKeywords.map((keyword) => Chip(
+                        label: Text(keyword.toString()),
+                        backgroundColor: Colors.blue.withOpacity(0.1),
+                      )).toList(),
+                    ),
+                  ],
                   if (emergencyData.audioPath != null) ...[
+                    const SizedBox(height: 16),
                     Text(
                       'Audio Recording',
                       style: Theme.of(context).textTheme.titleMedium,

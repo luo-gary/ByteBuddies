@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/emergency_capture_screen.dart';
-import 'screens/safety_tips_screen.dart';
+import 'screens/emergency_services_screen.dart';
 
 void main() {
   runApp(const ResQApp());
@@ -51,11 +51,11 @@ class EmergencyHomePage extends StatelessWidget {
     );
   }
 
-  void _navigateToSafetyTips(BuildContext context) {
+  void _navigateToEmergencyServices(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => SafetyTipsScreen(),
+        builder: (context) => const EmergencyServicesScreen(),
       ),
     );
   }
@@ -105,9 +105,9 @@ class EmergencyHomePage extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               OutlinedButton(
-                onPressed: () => _navigateToSafetyTips(context),
+                onPressed: () => _navigateToEmergencyServices(context),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.black87,
+                  foregroundColor: Colors.blue,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 48,
                     vertical: 16,
@@ -116,7 +116,7 @@ class EmergencyHomePage extends StatelessWidget {
                     fontSize: 18,
                   ),
                 ),
-                child: const Text('View Safety Tips'),
+                child: const Text('I am Emergency Services'),
               ),
             ],
           ),

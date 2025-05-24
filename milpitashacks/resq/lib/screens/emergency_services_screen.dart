@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/emergency_data.dart';
+import 'package:intl/intl.dart';
 
 class EmergencyServicesScreen extends StatefulWidget {
   const EmergencyServicesScreen({super.key});
@@ -33,6 +34,17 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
     }
   }
 
+  String _formatLocation(double lat, double long) {
+    if (lat == 0 && long == 0) {
+      return 'Location not available';
+    }
+    return '${lat.toStringAsFixed(4)}, ${long.toStringAsFixed(4)}';
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return DateFormat('MMM d, y h:mm a').format(dateTime);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -53,31 +65,56 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
                     final data = _emergencyData[index];
                     return Card(
                       margin: const EdgeInsets.all(8),
-                      child: ListTile(
-                        title: Text(
-                          'Emergency Report ${index + 1}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        subtitle: Column(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Time: ${data.timestamp.toString()}',
+                            Row(
+                              children: [
+                                const Icon(Icons.warning, color: Colors.red),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Emergency Report ${index + 1}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                            const SizedBox(height: 8),
                             Text(
-                              'Location: ${data.latitude}, ${data.longitude}',
+                              'Time: ${_formatDateTime(data.timestamp)}',
+                              style: Theme.of(context).textTheme.bodyMedium,
                             ),
-                            if (data.photoPath != null)
-                              const Text('Photo Available'),
-                            if (data.audioPath != null)
-                              const Text('Audio Recording Available'),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Location: ${_formatLocation(data.latitude, data.longitude)}',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                if (data.photoPath != null)
+                                  Chip(
+                                    label: const Text('Photo'),
+                                    avatar: const Icon(Icons.camera_alt, size: 16),
+                                    backgroundColor: Colors.blue.withOpacity(0.1),
+                                  ),
+                                const SizedBox(width: 8),
+                                if (data.audioPath != null)
+                                  Chip(
+                                    label: const Text('Audio'),
+                                    avatar: const Icon(Icons.mic, size: 16),
+                                    backgroundColor: Colors.green.withOpacity(0.1),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
-                        onTap: () {
-                          // TODO: Show detailed view with photo and audio playback
-                        },
                       ),
                     );
                   },
