@@ -68,7 +68,7 @@ class _EmergencyHomePageState extends State<EmergencyHomePage> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'ResQ Link',
+                'ResQ',
                 style: TextStyle(
                   fontSize: 40,
                   fontWeight: FontWeight.bold,

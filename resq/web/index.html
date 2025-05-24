@@ -92,24 +92,32 @@
         // Request geolocation permission early
         await checkGeolocation();
         
-        loadingText.textContent = 'Checking Flutter initialization...';
+        loadingText.textContent = 'Loading Flutter...';
+
+        // Wait for flutter.js to load
+        await new Promise((resolve) => {
+          if (window.flutter) {
+            resolve();
+          } else {
+            const script = document.querySelector('script[src="flutter.js"]');
+            script.addEventListener('load', resolve);
+          }
+        });
+
+        // Now initialize Flutter
+        const flutter = await window.flutter.loader.init();
         
-        // Use the new load method
-        const engineInitializer = await _flutter.loader.load({
+        // Configure service worker
+        await flutter.initializeEngine({
           serviceWorker: {
             serviceWorkerVersion: serviceWorkerVersion,
           }
         });
-        
+
         loadingText.textContent = 'Initializing engine...';
-        try {
-          const appRunner = await engineInitializer.initializeEngine();
-          loadingText.textContent = 'Starting app...';
-          await appRunner.runApp();
-        } catch (e) {
-          console.error('Error running app:', e);
-          loadingText.textContent = 'Error loading app: ' + e.message;
-        }
+        
+        loadingText.textContent = 'Starting app...';
+        await flutter.runApp();
       } catch (e) {
         console.error('Flutter initialization error:', e);
         loadingText.textContent = 'Failed to initialize Flutter: ' + e.message;

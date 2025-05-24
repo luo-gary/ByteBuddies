@@ -22,7 +22,7 @@ class EmergencyCaptureScreen extends StatefulWidget {
   State<EmergencyCaptureScreen> createState() => _EmergencyCaptureScreenState();
 }
 
-class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
+class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with TickerProviderStateMixin {
   CameraController? _cameraController;
   bool _isCameraInitialized = false;
   bool _isRecording = false;
@@ -35,10 +35,26 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   final _p2pService = P2PService();
   Map<String, dynamic>? _analysis;
   StreamSubscription? _analysisSubscription;
+  late AnimationController _flashAnimationController;
+  late Animation<double> _flashAnimation;
+  late DateTime _recordingStartTime;
 
   @override
   void initState() {
     super.initState();
+    _flashAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _flashAnimation = Tween<double>(
+      begin: 0.0,
+      end: 0.7,
+    ).animate(CurvedAnimation(
+      parent: _flashAnimationController,
+      curve: Curves.easeIn,
+      reverseCurve: Curves.easeOut,
+    ));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeServices();
       _setupAnalysisListener();
@@ -208,7 +224,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
       if (kIsWeb) {
         // For web, check if geolocation is supported
         if (!await Geolocator.isLocationServiceEnabled()) {
-          _showTopBanner('Please enable location services in your browser', Colors.orange);
+          _showTopBanner('Location services are not available', Colors.orange);
           return;
         }
 
@@ -217,64 +233,60 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
         if (permission == LocationPermission.denied) {
           permission = await Geolocator.requestPermission();
           if (permission == LocationPermission.denied) {
-            _showTopBanner('Please allow location access in your browser', Colors.red);
+            _showTopBanner('Location permission denied', Colors.red);
             return;
           }
         }
 
-        // Get location with retries
-        Position? position;
-        int retryCount = 0;
-        const maxRetries = 3;
-
-        while (position == null && retryCount < maxRetries) {
-          try {
-            // For web, use lower accuracy to improve success rate
-            position = await Geolocator.getCurrentPosition(
-              desiredAccuracy: LocationAccuracy.medium,
-              timeLimit: const Duration(seconds: 10),
-            );
-          } catch (e) {
-            debugPrint('Attempt ${retryCount + 1} failed: $e');
-            retryCount++;
-            
-            if (retryCount < maxRetries) {
-              // Show feedback to user
-              _showTopBanner(
-                'Retrying location access... (${retryCount + 1}/$maxRetries)',
-                Colors.orange
-              );
-              await Future.delayed(const Duration(seconds: 2));
-            }
-          }
-        }
-
-        if (position == null) {
+        // Try to get current position with timeout
+        try {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          ).timeout(
+            const Duration(seconds: 5),
+            onTimeout: () async {
+              // Try to get last known position on timeout
+              final lastPosition = await Geolocator.getLastKnownPosition();
+              if (lastPosition != null) {
+                _showTopBanner('Using last known location', Colors.orange);
+                return lastPosition;
+              }
+              throw TimeoutException('Location request timed out');
+            },
+          );
+          
           if (mounted) {
-            _showTopBanner(
-              'Could not get location. Emergency services may have limited accuracy.',
-              Colors.orange
-            );
-            // Set a default position for web when location fails
-            position = Position(
-              latitude: 0,
-              longitude: 0,
-              timestamp: DateTime.now(),
-              accuracy: 0,
-              altitude: 0,
-              heading: 0,
-              speed: 0,
-              speedAccuracy: 0,
-              altitudeAccuracy: 0,
-              headingAccuracy: 0,
-            );
+            setState(() {
+              _currentPosition = position;
+            });
           }
-        }
-
-        if (mounted && position != null) {
-          setState(() {
-            _currentPosition = position;
-          });
+        } catch (e) {
+          debugPrint('Error getting current position: $e');
+          // Try to get last known position as fallback
+          final lastPosition = await Geolocator.getLastKnownPosition();
+          if (lastPosition != null && mounted) {
+            _showTopBanner('Using last known location', Colors.orange);
+            setState(() {
+              _currentPosition = lastPosition;
+            });
+          } else {
+            // If no position available, use a default position
+            _showTopBanner('Location unavailable. Using default location.', Colors.orange);
+            setState(() {
+              _currentPosition = Position(
+                latitude: 0,
+                longitude: 0,
+                timestamp: DateTime.now(),
+                accuracy: 0,
+                altitude: 0,
+                heading: 0,
+                speed: 0,
+                speedAccuracy: 0,
+                altitudeAccuracy: 0,
+                headingAccuracy: 0,
+              );
+            });
+          }
         }
         return;
       }
@@ -407,7 +419,21 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
       debugPrint('Error getting location: $e');
       if (!mounted) return;
       
-      _showTopBanner('Error getting location: ${e.toString()}', Colors.orange);
+      _showTopBanner('Error getting location. Using default location.', Colors.orange);
+      setState(() {
+        _currentPosition = Position(
+          latitude: 0,
+          longitude: 0,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        );
+      });
     }
   }
 
@@ -447,6 +473,8 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
 
     try {
+      _flashAnimationController.forward().then((_) => _flashAnimationController.reverse());
+      
       final XFile photo = await _cameraController!.takePicture();
       
       if (kIsWeb) {
@@ -474,38 +502,29 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
     if (kIsWeb) {
       try {
         if (_isRecording) {
-          // Stop recording
-          js.context.callMethod('stopRecording');
-          
-          // Wait longer for audio processing
-          await Future.delayed(const Duration(seconds: 1));
-          
-          // Get audio data from JavaScript
-          final recorder = js.context['flutterWebRecorder'];
-          final audioData = recorder['audioData'];
-          final error = recorder['error'];
-          
-          if (error != null) {
-            throw Exception(error.toString());
+          // Ensure minimum recording duration of 1 second
+          if (DateTime.now().difference(_recordingStartTime) < const Duration(seconds: 1)) {
+            await Future.delayed(
+              Duration(milliseconds: 1000 - DateTime.now().difference(_recordingStartTime).inMilliseconds)
+            );
           }
           
-          if (audioData == null) {
-            throw Exception('No audio data received');
-          }
-          
+          final path = await _audioRecorder.stop();
           setState(() {
-            _audioPath = audioData.toString();
+            _audioPath = path;
             _isRecording = false;
           });
-          
-          // Wait a moment before analyzing to ensure audio is processed
-          await Future.delayed(const Duration(milliseconds: 500));
           _analyzeScene();
         } else {
-          // Start recording
-          await js.context.callMethod('startRecording');
+          final random = Random();
+          final randomId = List.generate(10, (_) => random.nextInt(10)).join();
+          await _audioRecorder.start(
+            const RecordConfig(encoder: AudioEncoder.opus),
+            path: 'recording_$randomId.opus'
+          );
           setState(() {
             _isRecording = true;
+            _recordingStartTime = DateTime.now();
           });
         }
       } catch (e) {
@@ -520,6 +539,13 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
 
     // Mobile recording logic
     if (_isRecording) {
+      // Ensure minimum recording duration of 1 second
+      if (DateTime.now().difference(_recordingStartTime) < const Duration(seconds: 1)) {
+        await Future.delayed(
+          Duration(milliseconds: 1000 - DateTime.now().difference(_recordingStartTime).inMilliseconds)
+        );
+      }
+      
       final path = await _audioRecorder.stop();
       setState(() {
         _audioPath = path;
@@ -536,6 +562,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
         );
         setState(() {
           _isRecording = true;
+          _recordingStartTime = DateTime.now();
         });
       } catch (e) {
         debugPrint('Error starting recording: $e');
@@ -652,6 +679,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
 
   @override
   void dispose() {
+    _flashAnimationController.dispose();
     _analysisSubscription?.cancel();
     _cameraController?.dispose();
     _audioRecorder.dispose();
@@ -696,7 +724,18 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
                 alignment: Alignment.center,
                 children: [
                   if (_cameraController != null && _cameraController!.value.isInitialized)
-                    CameraPreview(_cameraController!),
+                    Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CameraPreview(_cameraController!),
+                        FadeTransition(
+                          opacity: _flashAnimation,
+                          child: Container(
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   if (_currentPosition != null)
                     Positioned(
                       top: 16,

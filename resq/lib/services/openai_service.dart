@@ -89,47 +89,76 @@ class OpenAIService {
         base64Image = base64Encode(imageBytes);
       }
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': 'gpt-4o',
-          'messages': [
-            {
-              'role': 'system',
-              'content': 'You are an emergency situation analyzer. Analyze the image and provide two responses: 1) A detailed analysis for emergency services, and 2) 3-4 critical, very brief safety tips for the person in danger.',
+      // Add retry logic for API calls
+      int maxRetries = 3;
+      int currentTry = 0;
+      late http.Response response;
+
+      while (currentTry < maxRetries) {
+        try {
+          response = await http.post(
+            Uri.parse('$_baseUrl/chat/completions'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_apiKey',
             },
-            {
-              'role': 'user',
-              'content': [
+            body: jsonEncode({
+              'model': 'gpt-4o',
+              'messages': [
                 {
-                  'type': 'text',
-                  'text': 'Analyze this emergency scene. Provide: 1) A detailed situation report for emergency services, and 2) 3-4 immediate, critical safety tips for the person (each tip should be under 8 words).',
+                  'role': 'system',
+                  'content': 'You are an emergency situation analyzer. Analyze the image and provide two responses: 1) A detailed analysis for emergency services, and 2) 3-4 critical, very brief safety tips for the person in danger.',
                 },
                 {
-                  'type': 'image_url',
-                  'image_url': {
-                    'url': 'data:image/jpeg;base64,$base64Image',
-                  },
+                  'role': 'user',
+                  'content': [
+                    {
+                      'type': 'text',
+                      'text': 'Analyze this emergency scene. Provide: 1) A detailed situation report for emergency services, and 2) 3-4 immediate, critical safety tips for the person (each tip should be under 8 words).',
+                    },
+                    {
+                      'type': 'image_url',
+                      'image_url': {
+                        'url': 'data:image/jpeg;base64,$base64Image',
+                      },
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-          'max_tokens': 1000,
-        }),
-      );
+              'max_tokens': 1000,
+            }),
+          );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'];
-        return _parseAnalysisResponse(content);
-      } else {
-        debugPrint('OpenAI API Error: ${response.statusCode} - ${response.body}');
-        throw Exception('Failed to analyze emergency scene: ${response.statusCode}');
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            final content = data['choices'][0]['message']['content'];
+            return _parseAnalysisResponse(content);
+          }
+
+          // If we get here, it means we got a non-200 response
+          debugPrint('OpenAI API Error: ${response.statusCode} - ${response.body}');
+          
+          // If we get a 429 (rate limit) or 5xx (server error), retry
+          if ((response.statusCode == 429 || response.statusCode >= 500) && 
+              currentTry < maxRetries - 1) {
+            currentTry++;
+            await Future.delayed(Duration(seconds: currentTry * 2)); // Exponential backoff
+            continue;
+          }
+          
+          throw Exception('Failed to analyze emergency scene: ${response.statusCode}');
+        } catch (e) {
+          if (e is http.ClientException && currentTry < maxRetries - 1) {
+            currentTry++;
+            debugPrint('Retrying API call after error: $e');
+            await Future.delayed(Duration(seconds: currentTry * 2));
+            continue;
+          }
+          rethrow;
+        }
       }
+      
+      throw Exception('Failed to analyze emergency scene after $maxRetries attempts');
     } catch (e) {
       debugPrint('Error analyzing image: $e');
       return {
@@ -200,9 +229,42 @@ class OpenAIService {
 
   Future<Map<String, dynamic>> _analyzeAudio(String audioPath) async {
     try {
-      final audioFile = File(audioPath);
-      if (!await audioFile.exists()) {
-        throw Exception('Audio file not found at path: $audioPath');
+      late final http.MultipartFile audioFile;
+      
+      if (kIsWeb) {
+        // For web, audioPath will be a blob URL
+        if (audioPath.startsWith('blob:')) {
+          // Fetch the blob data
+          final response = await http.get(Uri.parse(audioPath));
+          if (response.statusCode != 200) {
+            throw Exception('Failed to fetch audio blob: ${response.statusCode}');
+          }
+          
+          // Create a MultipartFile from the blob data
+          audioFile = http.MultipartFile.fromBytes(
+            'file',
+            response.bodyBytes,
+            filename: 'audio.opus', // Use opus extension for web
+          );
+        } else if (audioPath.startsWith('data:')) {
+          // Handle data URL
+          final data = audioPath.split(',')[1];
+          final bytes = base64Decode(data);
+          audioFile = http.MultipartFile.fromBytes(
+            'file',
+            bytes,
+            filename: 'audio.opus',
+          );
+        } else {
+          throw Exception('Invalid audio format for web');
+        }
+      } else {
+        // For mobile, use the file path
+        final file = File(audioPath);
+        if (!await file.exists()) {
+          throw Exception('Audio file not found at path: $audioPath');
+        }
+        audioFile = await http.MultipartFile.fromPath('file', file.path);
       }
       
       // Create multipart request for audio transcription
@@ -210,7 +272,7 @@ class OpenAIService {
         ..headers['Authorization'] = 'Bearer $_apiKey'
         ..fields['model'] = 'whisper-1'
         ..fields['response_format'] = 'json'
-        ..files.add(await http.MultipartFile.fromPath('file', audioFile.path));
+        ..files.add(audioFile);
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);

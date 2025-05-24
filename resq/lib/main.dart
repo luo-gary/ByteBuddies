@@ -123,7 +123,7 @@ class EmergencyHomePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     const Text(
-                      'ResQ Link',
+                      'ResQ',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.bold,

@@ -39,7 +39,7 @@ class PermissionUtil {
         builder: (_) => AlertDialog(
           title: const Text('Permissions Required'),
           content: const Text(
-            'Open Settings → ResQ Link and enable Camera, Microphone & Location.',
+            'Open Settings → ResQ and enable Camera, Microphone & Location.',
           ),
           actions: [
             TextButton(
