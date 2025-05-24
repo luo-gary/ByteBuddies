@@ -222,76 +222,51 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
   Future<void> _getCurrentLocation() async {
     try {
       if (kIsWeb) {
-        // For web, check if geolocation is supported
-        if (!await Geolocator.isLocationServiceEnabled()) {
-          _showTopBanner('Location services are not available', Colors.orange);
-          return;
-        }
-
-        // Request permission
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied) {
-          permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied) {
-            _showTopBanner('Location permission denied', Colors.red);
+        try {
+          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+          if (!serviceEnabled) {
+            _showTopBanner('Location services are not available', Colors.orange);
             return;
           }
-        }
 
-        // Try to get current position with timeout
-        try {
-          Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-          ).timeout(
-            const Duration(seconds: 5),
-            onTimeout: () async {
-              // Try to get last known position on timeout
-              final lastPosition = await Geolocator.getLastKnownPosition();
-              if (lastPosition != null) {
-                _showTopBanner('Using last known location', Colors.orange);
-                return lastPosition;
-              }
-              throw TimeoutException('Location request timed out');
-            },
-          );
-          
-          if (mounted) {
-            setState(() {
-              _currentPosition = position;
-            });
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+            if (permission == LocationPermission.denied) {
+              _showTopBanner('Location permission denied by user', Colors.red);
+              return;
+            }
           }
+
+          final position = await Geolocator.getCurrentPosition()
+              .timeout(const Duration(seconds: 5));
+          setState(() => _currentPosition = position);
         } catch (e) {
-          debugPrint('Error getting current position: $e');
-          // Try to get last known position as fallback
-          final lastPosition = await Geolocator.getLastKnownPosition();
-          if (lastPosition != null && mounted) {
-            _showTopBanner('Using last known location', Colors.orange);
-            setState(() {
-              _currentPosition = lastPosition;
-            });
+          debugPrint('⚠️ Web location error: $e');
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) {
+            setState(() => _currentPosition = last);
           } else {
-            // If no position available, use a default position
-            _showTopBanner('Location unavailable. Using default location.', Colors.orange);
-            setState(() {
-              _currentPosition = Position(
-                latitude: 0,
-                longitude: 0,
-                timestamp: DateTime.now(),
-                accuracy: 0,
-                altitude: 0,
-                heading: 0,
-                speed: 0,
-                speedAccuracy: 0,
-                altitudeAccuracy: 0,
-                headingAccuracy: 0,
-              );
-            });
+            // fallback to 0,0
+            setState(() => _currentPosition = Position(
+              latitude: 0,
+              longitude: 0,
+              accuracy: 0,
+              altitude: 0,
+              heading: 0,
+              speed: 0,
+              speedAccuracy: 0,
+              timestamp: DateTime.now(),
+              altitudeAccuracy: 0,
+              headingAccuracy: 0,
+            ));
           }
+          _showTopBanner('Location fallback to default', Colors.orange);
         }
         return;
       }
 
-      // Mobile location handling continues as before
+      // Mobile location handling
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (!mounted) return;
@@ -407,13 +382,35 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
       // Get location if permission is granted
       if (permission == LocationPermission.whileInUse || 
           permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
-        );
-        setState(() {
-          _currentPosition = position;
-        });
+        try {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 5),
+          );
+          setState(() {
+            _currentPosition = position;
+          });
+        } catch (e) {
+          debugPrint('⚠️ Mobile location error: $e');
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) {
+            setState(() => _currentPosition = last);
+          } else {
+            setState(() => _currentPosition = Position(
+              latitude: 0,
+              longitude: 0,
+              accuracy: 0,
+              altitude: 0,
+              heading: 0,
+              speed: 0,
+              speedAccuracy: 0,
+              timestamp: DateTime.now(),
+              altitudeAccuracy: 0,
+              headingAccuracy: 0,
+            ));
+          }
+          _showTopBanner('Location fallback to default', Colors.orange);
+        }
       }
     } catch (e) {
       debugPrint('Error getting location: $e');

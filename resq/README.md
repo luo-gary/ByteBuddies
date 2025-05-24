@@ -11,28 +11,34 @@ A peer-to-peer emergency communicator for natural disasters, using AI for situat
 - Emergency services dashboard
 - Situation-specific safety tips
 
-## Setup
+## Setup & Environment Variables
 
 1. Install Flutter dependencies:
 ```bash
 flutter pub get
 ```
 
-2. Create a `.env` file in the project root with your OpenAI API key:
+2. Copy `.env.example` to `.env`:
+```bash
+cp .env.example .env
 ```
+
+3. Edit `.env` and add your values:
+```bash
+# Get your API key from https://platform.openai.com/api-keys
 OPENAI_API_KEY=your_api_key_here
 ```
 
-3. Run the app:
+4. Run the app:
 ```bash
 flutter run
 ```
 
-## Environment Variables
+⚠️ **SECURITY NOTE:** Never commit your `.env` file or expose your API keys. The `.env` file is listed in `.gitignore` to prevent accidental commits.
 
-The app requires the following environment variables in a `.env` file:
+## For Deployment
 
-- `OPENAI_API_KEY`: Your OpenAI API key for image and audio analysis
+Set the environment variables in your deployment platform's settings. Do not commit sensitive values to the repository.
 
 ## Development
 
