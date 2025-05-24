@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/emergency_data.dart';
@@ -194,7 +193,8 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
               const SizedBox(height: 24),
 
               // Description - Only shown to emergency services
-              if (false && _analysis['description'] != null) ...[
+              /* Hidden for now - will be shown only to emergency services
+              if (_analysis['description'] != null) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -226,6 +226,7 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
                 ),
                 const SizedBox(height: 24),
               ],
+              */
 
               // Audio Keywords
               if (_analysis['audioKeywords'] != null) ...[

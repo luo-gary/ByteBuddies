@@ -6,12 +6,10 @@ import 'screens/emergency_services_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
     debugPrint('Warning: .env file not found. Using fallback configuration.');
-    // Set default/fallback values
     dotenv.env['OPENAI_API_KEY'] = '';
   }
   

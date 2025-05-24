@@ -17,6 +17,9 @@ PODS:
     - Flutter
   - record_darwin (1.0.0):
     - Flutter
+  - sqflite_darwin (0.0.4):
+    - Flutter
+    - FlutterMacOS
   - SwiftyJSON (4.3.0)
   - url_launcher_ios (0.0.1):
     - Flutter
@@ -30,6 +33,7 @@ DEPENDENCIES:
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - record_darwin (from `.symlinks/plugins/record_darwin/ios`)
+  - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 SPEC REPOS:
@@ -53,6 +57,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   record_darwin:
     :path: ".symlinks/plugins/record_darwin/ios"
+  sqflite_darwin:
+    :path: ".symlinks/plugins/sqflite_darwin/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
@@ -65,9 +71,10 @@ SPEC CHECKSUMS:
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   record_darwin: fb1f375f1d9603714f55b8708a903bbb91ffdb0a
+  sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   SwiftyJSON: 6faa0040f8b59dead0ee07436cbf76b73c08fd08
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: ff286276764772425b48a88688b78b46e16892a5
+PODFILE CHECKSUM: 45bcbd9c0fdf07104311292f26111e56c1443be9
 
 COCOAPODS: 1.16.2

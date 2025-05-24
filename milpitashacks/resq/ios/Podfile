@@ -1,6 +1,5 @@
 # Uncomment this line to define a global platform for your project
 platform :ios, '13.0'
-use_frameworks!
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -29,37 +28,20 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  use_frameworks!
+  use_frameworks! :linkage => :static
   use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
-
-  # Fix for TensorFlow Lite static framework issue
-  pre_install do |installer|
-    Pod::Installer::Xcode::TargetValidator.send(:define_method, :verify_no_static_framework_transitive_dependencies) {}
-  end
 end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     
-    # Add the following block for permission handling
     target.build_configurations.each do |config|
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
-        '$(inherited)',
-        'PERMISSION_CAMERA=1',
-        'PERMISSION_MICROPHONE=1',
-        'PERMISSION_LOCATION=1',
-        'PERMISSION_BLUETOOTH=1',
-      ]
-      
-      # Ensure minimum iOS version is set
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      
-      # Enable Bluetooth capabilities
+      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
       config.build_settings['ENABLE_BITCODE'] = 'NO'
-      config.build_settings['SWIFT_VERSION'] = '5.0'
     end
   end
 end

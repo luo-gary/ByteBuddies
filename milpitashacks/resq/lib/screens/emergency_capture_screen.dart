@@ -35,8 +35,6 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   void initState() {
     super.initState();
     _requestPermissions();
-    _getCurrentLocation();
-    _startP2PServices();
   }
 
   Future<void> _requestPermissions() async {
@@ -180,9 +178,6 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
 
   Future<void> _startP2PServices() async {
     try {
-      // Ensure all permissions are granted before starting P2P services
-      await _requestPermissions();
-      
       // Initialize P2P services
       await Future.wait([
         _p2pService.startAdvertising(),
@@ -528,13 +523,11 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
         longitude: position.longitude,
         photoPath: _photoPath,
         audioPath: _audioPath,
-      );
-
-      // Save emergency data with analysis
-      await EmergencyData.saveEmergencyData(
-        emergencyData,
         analysis: _analysis,
       );
+
+      // Save emergency data
+      await emergencyData.save();
 
       if (!mounted) return;
       

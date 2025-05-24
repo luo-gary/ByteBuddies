@@ -33,7 +33,7 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
     try {
       final reports = await EmergencyData.getAllReports();
       setState(() {
-        _emergencyData = reports.map((data) => EmergencyData.fromJson(data)).toList();
+        _emergencyData = reports;
         _isLoading = false;
       });
     } catch (e) {
