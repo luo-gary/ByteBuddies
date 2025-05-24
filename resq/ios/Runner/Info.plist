@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Flutter / Bundle settings -->
+  <key>CADisableMinimumFrameDurationOnPhone</key>
+  <true/>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>$(DEVELOPMENT_LANGUAGE)</string>
+  <key>CFBundleDisplayName</key>
+  <string>ResQ Link</string>
+  <key>CFBundleExecutable</key>
+  <string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundleIdentifier</key>
+  <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>resq</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>$(FLUTTER_BUILD_NAME)</string>
+  <key>CFBundleVersion</key>
+  <string>$(FLUTTER_BUILD_NUMBER)</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+
+  <!-- Required permission descriptions -->
+  <!-- camera -->
+  <key>NSCameraUsageDescription</key>
+  <string>Needed to capture emergency photos.</string>
+
+  <!-- microphone -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Needed to record voice messages.</string>
+
+  <!-- location (when-in-use) -->
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Your location helps rescuers find you quickly.</string>
+
+  <!-- location always (only if you actually call requestAlways) -->
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+  <string>Required to share your location during an emergency.</string>
+
+  <!-- bluetooth -->
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>Needed for peer-to-peer emergency communication.</string>
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>Needed for peer-to-peer emergency communication.</string>
+
+
+  <!-- Background modes -->
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>location</string>
+    <string>bluetooth-central</string>
+  </array>
+
+  <!-- Launch storyboard -->
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
+  <key>UIMainStoryboardFile</key>
+  <string>Main</string>
+
+  <!-- Supported orientations -->
+  <key>UISupportedInterfaceOrientations</key>
+  <array>
+    <string>UIInterfaceOrientationPortrait</string>
+  </array>
+
+  <!-- Status bar appearance -->
+  <key>UIViewControllerBasedStatusBarAppearance</key>
+  <false/>
+
+  <key>UIApplicationSupportsIndirectInputEvents</key>
+  <true/>
+</dict>
+</plist>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`. -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="ResQ Emergency Response App">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ResQ">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>ResQ</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    body {
+      background-color: #030303;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      color: white;
+      font-family: sans-serif;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .loading img {
+      width: 64px;
+      height: 64px;
+    }
+  </style>
+
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    const serviceWorkerVersion = '{{flutter_service_worker_version}}';
+
+    // Check if geolocation is available
+    async function checkGeolocation() {
+      if ('geolocation' in navigator) {
+        try {
+          await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            });
+          });
+        } catch (error) {
+          console.warn('Geolocation permission not granted:', error);
+        }
+      }
+    }
+  </script>
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+  <script>
+    // Add error handler for flutter.js loading
+    document.querySelector('script[src="flutter.js"]').onerror = function(e) {
+      console.error('Failed to load Flutter.js');
+      document.querySelector('#loading-text').textContent = 'Failed to load Flutter runtime';
+    };
+  </script>
+</head>
+<body>
+  <div class="loading">
+    <img src="icons/Icon-192.png" alt="ResQ Logo">
+    <span id="loading-text">Loading ResQ...</span>
+  </div>
+  <script>
+    window.addEventListener('load', async function(ev) {
+      var loadingText = document.querySelector('#loading-text');
+
+      try {
+        loadingText.textContent = 'Checking permissions...';
+        
+        // Request geolocation permission early
+        await checkGeolocation();
+        
+        loadingText.textContent = 'Checking Flutter initialization...';
+        
+        // Use the new load method
+        const engineInitializer = await _flutter.loader.load({
+          serviceWorker: {
+            serviceWorkerVersion: serviceWorkerVersion,
+          }
+        });
+        
+        loadingText.textContent = 'Initializing engine...';
+        try {
+          const appRunner = await engineInitializer.initializeEngine();
+          loadingText.textContent = 'Starting app...';
+          await appRunner.runApp();
+        } catch (e) {
+          console.error('Error running app:', e);
+          loadingText.textContent = 'Error loading app: ' + e.message;
+        }
+      } catch (e) {
+        console.error('Flutter initialization error:', e);
+        loadingText.textContent = 'Failed to initialize Flutter: ' + e.message;
+      }
+    });
+  </script>
+</body>
+</html>
