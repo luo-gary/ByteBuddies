@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../models/emergency_data.dart';
 import 'package:intl/intl.dart';
 
@@ -10,6 +12,8 @@ class EmergencyServicesScreen extends StatefulWidget {
 }
 
 class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingId;
   List<EmergencyData> _emergencyData = [];
   bool _isLoading = true;
 
@@ -17,6 +21,12 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
   void initState() {
     super.initState();
     _loadEmergencyData();
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   Future<void> _loadEmergencyData() async {
@@ -31,6 +41,39 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _toggleAudioPlayback(String? audioPath, String emergencyId) async {
+    if (audioPath == null) return;
+
+    try {
+      if (_currentlyPlayingId == emergencyId) {
+        // Stop current playback
+        await _audioPlayer.stop();
+        setState(() => _currentlyPlayingId = null);
+      } else {
+        // Stop any existing playback
+        if (_currentlyPlayingId != null) {
+          await _audioPlayer.stop();
+        }
+        // Start new playback
+        await _audioPlayer.play(DeviceFileSource(audioPath));
+        setState(() => _currentlyPlayingId = emergencyId);
+        
+        // Reset when audio finishes
+        _audioPlayer.onPlayerComplete.listen((_) {
+          setState(() => _currentlyPlayingId = null);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error playing audio: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error playing audio: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -98,43 +141,48 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
                   const SizedBox(height: 10),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.asset(
-                      data.photoPath!,
+                    child: Image.file(
+                      File(data.photoPath!),
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(
-                            height: 200,
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: Icon(Icons.broken_image, size: 50),
-                            ),
+                      height: 200,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image, size: 50),
+                              SizedBox(height: 8),
+                              Text('Error loading image'),
+                            ],
                           ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
                 if (data.audioPath != null) ...[
                   const SizedBox(height: 20),
-                  const Text(
-                    'Audio Recording',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.mic, color: Colors.grey[600]),
-                        const SizedBox(width: 10),
-                        const Text('Audio recording available'),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      const Text(
+                        'Audio Recording',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      IconButton(
+                        onPressed: () => _toggleAudioPlayback(data.audioPath, data.id),
+                        icon: Icon(
+                          _currentlyPlayingId == data.id ? Icons.stop : Icons.play_arrow,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],

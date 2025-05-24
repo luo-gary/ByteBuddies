@@ -1,59 +1,57 @@
 # ResQ Link
 
-A peer-to-peer emergency communicator for natural disasters that works without internet using iPhone hotspot broadcasting, AI environment analysis, and local sharing.
+A peer-to-peer emergency communicator for natural disasters, using AI for situation analysis and offline communication.
 
 ## Features
 
-- **Multimedia SOS Capture**
-  - Take photos of emergency situations
-  - Record voice messages
-  - Automatic GPS location tagging
-  - Works offline
-
-- **Offline Communication**
-  - Peer-to-peer data sharing using MultipeerConnectivity
-  - Devices act as relays to extend reach
-  - Automatic discovery of nearby devices
-
-- **AI-Powered Analysis**
-  - On-device image classification for situation assessment
-  - Audio keyword detection
-  - Severity estimation
-  - People detection
-
-- **Emergency Guidance**
-  - Real-time survival tips based on detected situation
-  - Offline-first design
-  - Clear, actionable instructions
+- Emergency photo and audio capture
+- AI-powered scene analysis
+- Offline peer-to-peer communication
+- Location-based emergency reporting
+- Emergency services dashboard
+- Situation-specific safety tips
 
 ## Setup
 
-1. Install Flutter:
-   ```bash
-   brew install flutter
-   ```
+1. Install Flutter dependencies:
+```bash
+flutter pub get
+```
 
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/resq.git
-   cd resq
-   ```
+2. Create a `.env` file in the project root with your OpenAI API key:
+```
+OPENAI_API_KEY=your_api_key_here
+```
 
-3. Install dependencies:
-   ```bash
-   flutter pub get
-   ```
+3. Run the app:
+```bash
+flutter run
+```
 
-4. Download TensorFlow Lite models:
-   - Create `assets/models` directory
-   - Download and place the following models:
-     - `image_classifier.tflite`
-     - `audio_classifier.tflite`
+## Environment Variables
 
-5. Run the app:
-   ```bash
-   flutter run
-   ```
+The app requires the following environment variables in a `.env` file:
+
+- `OPENAI_API_KEY`: Your OpenAI API key for image and audio analysis
+
+## Development
+
+- The app uses Flutter's latest stable version
+- OpenAI's GPT-4 Vision for image analysis
+- Whisper for audio transcription
+- Material 3 design system
+- Offline-first architecture
+
+## Security
+
+- API keys are stored in `.env` (not in version control)
+- Location data is optional and user-controlled
+- P2P communication is local-only
+- No data is stored on external servers
+
+## License
+
+MIT License - See LICENSE file for details
 
 ## Technical Architecture
 
@@ -71,15 +69,16 @@ A peer-to-peer emergency communicator for natural disasters that works without i
    - Data synchronization protocol
 
 3. **AI Analysis**
-   - TensorFlow Lite integration
-   - Custom image classification model
-   - Audio processing pipeline
-   - Real-time analysis system
+   - OpenAI GPT-4 Vision for image analysis
+   - OpenAI Whisper for audio transcription
+   - Real-time situation assessment
+   - Safety tip generation based on context
 
 4. **Data Management**
    - Local storage with JSON
    - Queue system for unsent messages
    - Data compression for efficient sharing
+   - Secure API key handling
 
 ### Dependencies
 
@@ -88,9 +87,11 @@ A peer-to-peer emergency communicator for natural disasters that works without i
 - `record`: Audio recording
 - `geolocator`: GPS location services
 - `nearby_connections`: P2P communication
-- `tflite_flutter`: TensorFlow Lite integration
+- `flutter_dotenv`: Environment variable management
+- `http`: API communication
 - `path_provider`: File system access
 - `uuid`: Unique identifier generation
+- `intl`: Date and time formatting
 
 ## Contributing
 
@@ -100,12 +101,8 @@ A peer-to-peer emergency communicator for natural disasters that works without i
 4. Push to the branch
 5. Create a Pull Request
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## Acknowledgments
 
 - Flutter team for the amazing framework
-- TensorFlow team for TFLite
+- OpenAI team for GPT-4 Vision and Whisper
 - All contributors and testers

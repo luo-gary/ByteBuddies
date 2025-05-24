@@ -7,7 +7,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Load environment variables
-  await dotenv.load(fileName: '.env');
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    debugPrint('Warning: .env file not found. Using fallback configuration.');
+    // Set default/fallback values
+    dotenv.env['OPENAI_API_KEY'] = '';
+  }
   
   runApp(const ResQApp());
 }
@@ -49,6 +55,25 @@ class EmergencyHomePage extends StatelessWidget {
   const EmergencyHomePage({super.key});
 
   void _navigateToEmergencyCapture(BuildContext context) {
+    if (dotenv.env['OPENAI_API_KEY']?.isEmpty ?? true) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Configuration Required'),
+          content: const Text(
+            'Please add your OpenAI API key to the .env file to enable AI analysis features.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    
     Navigator.push(
       context,
       MaterialPageRoute(

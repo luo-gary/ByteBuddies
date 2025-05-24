@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Resq</string>
+	<string>ResQ Link</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>resq</string>
+	<string>ResQ Link</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -26,8 +26,18 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ResQ needs camera access to capture photos of emergency situations for first responders.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ResQ needs microphone access to record audio descriptions of emergency situations.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ResQ needs location access to help emergency services find you.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>ResQ needs location access to help emergency services find you.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>ResQ needs Bluetooth access for peer-to-peer emergency communication.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>ResQ needs Bluetooth access for peer-to-peer emergency communication.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -35,35 +45,10 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>NSCameraUsageDescription</key>
-	<string>ResQ Link needs access to your camera to capture photos during emergencies for better assistance and situation assessment.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>ResQ Link needs access to location to help emergency responders find you and to connect with nearby users during emergencies.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>ResQ Link needs access to location to help emergency responders find you and to connect with nearby users during emergencies, even when the app is in the background.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>ResQ Link needs access to your microphone to record audio messages during emergencies.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>ResQ Link needs access to the local network to connect with nearby devices during emergencies when internet is not available.</string>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>ResQ Link uses Bluetooth to discover and connect with nearby devices during emergencies.</string>
-	<key>NSNearbyInteractionUsageDescription</key>
-	<string>ResQ Link uses nearby interaction to discover and connect with other devices during emergencies.</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>bluetooth-central</string>
-		<string>bluetooth-peripheral</string>
-		<string>nearby-interaction</string>
-	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>

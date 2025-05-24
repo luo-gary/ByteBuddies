@@ -31,17 +31,19 @@ dependencies:
   flutter:
     sdk: flutter
   camera: ^0.10.5+9
-  permission_handler: ^11.2.1
+  permission_handler: ^11.0.1
   record: ^5.0.4
   geolocator: ^10.1.0
   path_provider: ^2.1.2
   cupertino_icons: ^1.0.2
   nearby_connections: ^4.0.1
   image: ^4.1.7
-  uuid: ^4.3.3
+  uuid: ^4.2.2
   http: ^1.1.0
   intl: ^0.19.0
   flutter_dotenv: ^5.1.0
+  audioplayers: ^5.2.1
+  url_launcher: ^6.2.1
 
 dev_dependencies:
   flutter_test:

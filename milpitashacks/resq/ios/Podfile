@@ -1,5 +1,6 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '12.0'
+platform :ios, '13.0'
+use_frameworks!
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -42,10 +43,23 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    
+    # Add the following block for permission handling
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
-      # Add the following line to allow static frameworks
-      config.build_settings['BUILD_LIBRARY_FOR_DISTRIBUTION'] = 'YES'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        'PERMISSION_CAMERA=1',
+        'PERMISSION_MICROPHONE=1',
+        'PERMISSION_LOCATION=1',
+        'PERMISSION_BLUETOOTH=1',
+      ]
+      
+      # Ensure minimum iOS version is set
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
+      
+      # Enable Bluetooth capabilities
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+      config.build_settings['SWIFT_VERSION'] = '5.0'
     end
   end
 end

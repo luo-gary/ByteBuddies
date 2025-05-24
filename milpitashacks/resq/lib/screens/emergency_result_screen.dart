@@ -1,17 +1,28 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/emergency_data.dart';
 import '../screens/emergency_services_screen.dart';
 
 class EmergencyResultScreen extends StatelessWidget {
   final EmergencyData emergencyData;
   final Map<String, dynamic> analysis;
+  final String emergencyNumber = "(650) 732-8894";
 
   const EmergencyResultScreen({
     super.key,
     required this.emergencyData,
     required this.analysis,
   });
+
+  Future<void> _callEmergencyServices() async {
+    final Uri phoneUri = Uri.parse('tel:$emergencyNumber');
+    if (await canLaunchUrl(phoneUri)) {
+      await launchUrl(phoneUri);
+    } else {
+      debugPrint('Could not launch phone call');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,20 +153,86 @@ class EmergencyResultScreen extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
 
+              // Emergency Services
+              Card(
+                color: Colors.red.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Emergency Services',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Call: $emergencyNumber',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _callEmergencyServices,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.all(16),
+                          ),
+                          icon: const Icon(Icons.phone),
+                          label: const Text(
+                            'Call Emergency Services Now',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Location Information
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Location Information',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Latitude: ${emergencyData.latitude.toStringAsFixed(6)}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Longitude: ${emergencyData.longitude.toStringAsFixed(6)}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               // Help Button
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement emergency services contact
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Contacting emergency services...'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  },
+                  onPressed: _callEmergencyServices,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,
                     foregroundColor: Colors.white,
@@ -163,9 +240,9 @@ class EmergencyResultScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  icon: const Icon(Icons.emergency),
+                  icon: const Icon(Icons.phone_forwarded),
                   label: const Text(
-                    'Contact Emergency Services',
+                    'Call (650) 732-8894',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

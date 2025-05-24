@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:nearby_connections/nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/emergency_data.dart';
@@ -10,22 +12,88 @@ class P2PService {
   P2PService._internal();
 
   final Nearby _nearby = Nearby();
-  bool _isAdvertising = false;
-  bool _isDiscovering = false;
-  final Set<String> _connectedPeers = {};
+  bool _isInitialized = false;
+  StreamController<String>? _stateController;
+  final Set<String> _connectedEndpoints = {};
 
-  static const Strategy _strategy = Strategy.P2P_STAR;
-  static const String _serviceId = 'com.resqlink.emergency';
+  final String _serviceId = 'com.resqlink.emergency';
+  final Strategy _strategy = Strategy.P2P_CLUSTER;
 
-  Future<bool> startAdvertising() async {
-    if (_isAdvertising) return true;
+  Future<void> initialize() async {
+    if (_isInitialized) return;
 
     try {
-      bool permissionGranted = await Permission.location.request().isGranted;
-      if (!permissionGranted) return false;
+      // Request necessary permissions
+      await _requestPermissions();
 
-      await _nearby.startAdvertising(
-        'DEVICE_${DateTime.now().millisecondsSinceEpoch}',
+      // Initialize state controller
+      _stateController = StreamController<String>.broadcast();
+      _stateController?.stream.listen(
+        (state) {
+          debugPrint('Nearby Connections state changed: $state');
+        },
+        onError: (error) {
+          debugPrint('Nearby Connections error: $error');
+        },
+      );
+
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing P2P service: $e');
+      _isInitialized = false;
+    }
+  }
+
+  Future<void> _requestPermissions() async {
+    // Request location permission (required for nearby connections)
+    if (!await Permission.location.isGranted) {
+      final status = await Permission.location.request();
+      if (!status.isGranted) {
+        throw Exception('Location permission is required for P2P communication');
+      }
+    }
+
+    // Request Bluetooth permissions
+    if (!await Permission.bluetooth.isGranted) {
+      final status = await Permission.bluetooth.request();
+      if (!status.isGranted) {
+        throw Exception('Bluetooth permission is required for P2P communication');
+      }
+    }
+
+    // Request Bluetooth advertise permission
+    if (!await Permission.bluetoothAdvertise.isGranted) {
+      final status = await Permission.bluetoothAdvertise.request();
+      if (!status.isGranted) {
+        throw Exception('Bluetooth advertise permission is required for P2P communication');
+      }
+    }
+
+    // Request Bluetooth connect permission
+    if (!await Permission.bluetoothConnect.isGranted) {
+      final status = await Permission.bluetoothConnect.request();
+      if (!status.isGranted) {
+        throw Exception('Bluetooth connect permission is required for P2P communication');
+      }
+    }
+
+    // Request Bluetooth scan permission
+    if (!await Permission.bluetoothScan.isGranted) {
+      final status = await Permission.bluetoothScan.request();
+      if (!status.isGranted) {
+        throw Exception('Bluetooth scan permission is required for P2P communication');
+      }
+    }
+  }
+
+  Future<void> startAdvertising() async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    try {
+      bool started = await _nearby.startAdvertising(
+        'device-${DateTime.now().millisecondsSinceEpoch}',
         _strategy,
         onConnectionInitiated: _onConnectionInitiated,
         onConnectionResult: _onConnectionResult,
@@ -33,40 +101,37 @@ class P2PService {
         serviceId: _serviceId,
       );
 
-      _isAdvertising = true;
-      return true;
+      debugPrint('Advertising ${started ? 'started' : 'failed to start'}');
     } catch (e) {
-      print('Error starting advertising: $e');
-      return false;
+      debugPrint('Error starting advertising: $e');
     }
   }
 
-  Future<bool> startDiscovery() async {
-    if (_isDiscovering) return true;
+  Future<void> startDiscovery() async {
+    if (!_isInitialized) {
+      await initialize();
+    }
 
     try {
-      bool permissionGranted = await Permission.location.request().isGranted;
-      if (!permissionGranted) return false;
-
-      await _nearby.startDiscovery(
-        'DEVICE_${DateTime.now().millisecondsSinceEpoch}',
+      bool started = await _nearby.startDiscovery(
+        'device-${DateTime.now().millisecondsSinceEpoch}',
         _strategy,
-        onEndpointFound: (String id, String name, String serviceId) {
-          _onEndpointFound(id, name, serviceId);
+        onEndpointFound: (String id, String userName, String serviceId) {
+          debugPrint('Found endpoint: $id, user: $userName, service: $serviceId');
+          _onEndpointFound(id, userName, serviceId);
         },
-        onEndpointLost: (id) => print('Lost endpoint: $id'),
+        onEndpointLost: (id) => debugPrint('Lost endpoint: $id'),
         serviceId: _serviceId,
       );
 
-      _isDiscovering = true;
-      return true;
+      debugPrint('Discovery ${started ? 'started' : 'failed to start'}');
     } catch (e) {
-      print('Error starting discovery: $e');
-      return false;
+      debugPrint('Error starting discovery: $e');
     }
   }
 
   void _onConnectionInitiated(String id, ConnectionInfo info) {
+    debugPrint('Connection initiated with device: $id');
     _nearby.acceptConnection(
       id,
       onPayLoadRecieved: _onPayloadReceived,
@@ -75,22 +140,22 @@ class P2PService {
   }
 
   void _onConnectionResult(String id, Status status) {
+    debugPrint('Connection result with device $id: $status');
     if (status == Status.CONNECTED) {
-      _connectedPeers.add(id);
-      _sendUnsentEmergencyData(id);
-    } else if (status == Status.REJECTED || status == Status.ERROR) {
-      _connectedPeers.remove(id);
+      _connectedEndpoints.add(id);
+    } else {
+      _connectedEndpoints.remove(id);
     }
   }
 
   void _onDisconnected(String id) {
-    _connectedPeers.remove(id);
-    print('Disconnected from: $id');
+    debugPrint('Disconnected from device: $id');
+    _connectedEndpoints.remove(id);
   }
 
-  void _onEndpointFound(String id, String name, String serviceId) {
+  void _onEndpointFound(String id, String userName, String serviceId) {
     _nearby.requestConnection(
-      'DEVICE_${DateTime.now().millisecondsSinceEpoch}',
+      'device-${DateTime.now().millisecondsSinceEpoch}',
       id,
       onConnectionInitiated: _onConnectionInitiated,
       onConnectionResult: _onConnectionResult,
@@ -99,72 +164,48 @@ class P2PService {
   }
 
   void _onPayloadReceived(String id, Payload payload) {
-    if (payload.type == PayloadType.BYTES) {
-      String dataString = String.fromCharCodes(payload.bytes!);
-      Map<String, dynamic> json = jsonDecode(dataString);
-      EmergencyData emergencyData = EmergencyData.fromJson(json);
-      EmergencyData.saveEmergencyData(emergencyData);
-    }
+    debugPrint('Received payload from $id: ${payload.type}');
   }
 
   void _onPayloadTransferUpdate(String id, PayloadTransferUpdate update) {
-    if (update.status == PayloadStatus.SUCCESS) {
-      print('Payload transfer successful');
-    }
-  }
-
-  Future<void> _sendUnsentEmergencyData(String endpointId) async {
-    List<EmergencyData> unsentData = await EmergencyData.getUnsentEmergencyData();
-    for (var data in unsentData) {
-      try {
-        await _nearby.sendBytesPayload(
-          endpointId,
-          Uint8List.fromList(jsonEncode(data.toJson()).codeUnits),
-        );
-        await data.markAsSent();
-      } catch (e) {
-        print('Error sending emergency data: $e');
-      }
-    }
-  }
-
-  Future<void> broadcastEmergencyData(EmergencyData data) async {
-    try {
-      // Send to all connected peers
-      for (var endpointId in _connectedPeers) {
-        try {
-          await _nearby.sendBytesPayload(
-            endpointId,
-            Uint8List.fromList(jsonEncode(data.toJson()).codeUnits),
-          );
-        } catch (e) {
-          print('Error sending to endpoint $endpointId: $e');
-          // Remove the peer if we can't send to it
-          _connectedPeers.remove(endpointId);
-        }
-      }
-    } catch (e) {
-      print('Error broadcasting emergency data: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> stopAdvertising() async {
-    if (!_isAdvertising) return;
-    await _nearby.stopAdvertising();
-    _isAdvertising = false;
-  }
-
-  Future<void> stopDiscovery() async {
-    if (!_isDiscovering) return;
-    await _nearby.stopDiscovery();
-    _isDiscovering = false;
+    debugPrint('Payload transfer update from $id: ${update.status}');
   }
 
   Future<void> stopAllEndpoints() async {
-    await _nearby.stopAllEndpoints();
-    _connectedPeers.clear();
-    _isAdvertising = false;
-    _isDiscovering = false;
+    if (!_isInitialized) return;
+
+    try {
+      await _nearby.stopAllEndpoints();
+      await _nearby.stopAdvertising();
+      await _nearby.stopDiscovery();
+      await _stateController?.close();
+      _stateController = null;
+      _connectedEndpoints.clear();
+      _isInitialized = false;
+      debugPrint('All P2P endpoints stopped');
+    } catch (e) {
+      debugPrint('Error stopping endpoints: $e');
+    }
+  }
+
+  Future<void> sendEmergencyData(Map<String, dynamic> data) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    if (_connectedEndpoints.isEmpty) {
+      debugPrint('No connected endpoints to send data to');
+      return;
+    }
+
+    try {
+      final bytes = Uint8List.fromList(data.toString().codeUnits);
+      for (final endpointId in _connectedEndpoints) {
+        await _nearby.sendBytesPayload(endpointId, bytes);
+        debugPrint('Emergency data sent to endpoint: $endpointId');
+      }
+    } catch (e) {
+      debugPrint('Error sending emergency data: $e');
+    }
   }
 } 

@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import nearby_connections
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
