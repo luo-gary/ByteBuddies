@@ -13,190 +13,235 @@ class EmergencyResultScreen extends StatelessWidget {
     required this.analysis,
   });
 
-  List<String> _getSafetyTips(String situation) {
-    // Simplified safety tips based on the situation
-    switch (situation.toLowerCase()) {
-      case 'fire detected':
-        return [
-          'Stay low to avoid smoke inhalation',
-          'Feel doors for heat before opening',
-          'Use stairs, not elevators',
-          'Call emergency services if safe to do so',
-          'Meet at your designated meeting point',
-        ];
-      case 'structural damage':
-        return [
-          'Stay away from damaged areas',
-          'Be aware of falling debris',
-          'Listen for official instructions',
-          'Avoid using elevators',
-          'Help others if safe to do so',
-        ];
-      case 'flooding':
-        return [
-          'Move to higher ground',
-          'Avoid walking through moving water',
-          'Stay away from electrical equipment',
-          'Be prepared to evacuate',
-          'Listen to emergency broadcasts',
-        ];
-      case 'debris':
-        return [
-          'Stay away from unstable structures',
-          'Watch for falling objects',
-          'Use protective gear if available',
-          'Follow evacuation orders',
-          'Help others if safe to do so',
-        ];
-      default:
-        return [
-          'Stay calm and assess the situation',
-          'Call emergency services if needed',
-          'Follow official instructions',
-          'Help others if safe to do so',
-          'Stay informed through local news',
-        ];
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final situation = analysis['detectedSituation'] as String;
-    final severity = analysis['severity'] as String;
-    final description = analysis['description'] as String;
-    final audioKeywords = analysis['audioKeywords'] as List<dynamic>;
-    final safetyTips = _getSafetyTips(situation);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Emergency Analysis'),
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (emergencyData.photoPath != null)
-              Image.file(
-                File(emergencyData.photoPath!),
+    return WillPopScope(
+      onWillPop: () async => false, // Prevent back navigation
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Emergency Response'),
+          backgroundColor: Colors.red,
+          foregroundColor: Colors.white,
+          automaticallyImplyLeading: false, // Remove back button
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Emergency Status
+              Container(
                 width: double.infinity,
-                height: 200,
-                fit: BoxFit.cover,
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Situation Detected: $situation',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Severity Level: $severity',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: severity.toLowerCase() == 'high' 
-                          ? Colors.red 
-                          : severity.toLowerCase() == 'medium'
-                              ? Colors.orange
-                              : Colors.green,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.red,
+                      size: 48,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'AI Analysis',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(description),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Location',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Latitude: ${emergencyData.latitude}\nLongitude: ${emergencyData.longitude}',
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Safety Tips',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  ...safetyTips.map((tip) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Colors.green),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(tip)),
-                          ],
-                        ),
-                      )),
-                  if (audioKeywords.isNotEmpty) ...[
-                    const SizedBox(height: 24),
-                    Text(
-                      'Audio Analysis',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: audioKeywords.map((keyword) => Chip(
-                        label: Text(keyword.toString()),
-                        backgroundColor: Colors.blue.withOpacity(0.1),
-                      )).toList(),
-                    ),
-                  ],
-                  if (emergencyData.audioPath != null) ...[
                     const SizedBox(height: 16),
                     Text(
-                      'Audio Recording',
-                      style: Theme.of(context).textTheme.titleMedium,
+                      analysis['detectedSituation'] ?? 'Emergency Reported',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
-                    // TODO: Add audio playback widget
-                    const Text('Audio recording available'),
+                    if (analysis['severity'] != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Severity: ${analysis['severity']}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Back to Camera'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const EmergencyServicesScreen(),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
                 ),
-                child: const Text('Emergency Services View'),
+              ),
+              const SizedBox(height: 24),
+
+              // Safety Tips Section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.tips_and_updates,
+                          color: Colors.blue,
+                          size: 32,
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'Safety Tips',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ..._buildSafetyTips(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Description
+              if (analysis['description'] != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Situation Details',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        analysis['description'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Help Button
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // TODO: Implement emergency services contact
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Contacting emergency services...'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.emergency),
+                  label: const Text(
+                    'Contact Emergency Services',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildSafetyTips() {
+    final List<String> tips = _getSafetyTips();
+    return tips.map((tip) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.check_circle,
+            color: Colors.blue,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              tip,
+              style: const TextStyle(
+                fontSize: 16,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
+    )).toList();
+  }
+
+  List<String> _getSafetyTips() {
+    final situation = analysis['detectedSituation']?.toString().toLowerCase() ?? '';
+    
+    if (situation.contains('fire')) {
+      return [
+        'Stay low to avoid smoke inhalation',
+        'Feel doors for heat before opening',
+        'Use stairs, not elevators',
+        'Once out, stay out',
+        'Call emergency services immediately',
+      ];
+    } else if (situation.contains('flood')) {
+      return [
+        'Move to higher ground immediately',
+        'Avoid walking through moving water',
+        'Stay away from power lines',
+        'Do not drive through flooded areas',
+        'Listen to emergency broadcasts',
+      ];
+    } else if (situation.contains('earthquake')) {
+      return [
+        'Drop, Cover, and Hold On',
+        'Stay away from windows and exterior walls',
+        'If inside, stay inside',
+        'If outside, move to an open area',
+        'Be prepared for aftershocks',
+      ];
+    } else {
+      return [
+        'Stay calm and assess the situation',
+        'Keep away from immediate danger',
+        'Follow official emergency instructions',
+        'Help others if it\'s safe to do so',
+        'Wait for emergency services to arrive',
+      ];
+    }
   }
 } 

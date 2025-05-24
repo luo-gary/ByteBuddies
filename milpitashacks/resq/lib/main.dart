@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/emergency_capture_screen.dart';
 import 'screens/emergency_services_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Load environment variables
+  await dotenv.load(fileName: '.env');
+  
   runApp(const ResQApp());
 }
 

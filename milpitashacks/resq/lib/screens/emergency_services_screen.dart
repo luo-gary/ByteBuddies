@@ -45,75 +45,229 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
     return DateFormat('MMM d, y h:mm a').format(dateTime);
   }
 
+  void _showEmergencyDetails(EmergencyData data) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.9,
+        minChildSize: 0.5,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Emergency Details',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildDetailRow('Time', _formatDateTime(data.timestamp)),
+                _buildDetailRow('Location', _formatLocation(data.latitude, data.longitude)),
+                if (data.photoPath != null) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Photo Evidence',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      data.photoPath!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            height: 200,
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: Icon(Icons.broken_image, size: 50),
+                            ),
+                          ),
+                    ),
+                  ),
+                ],
+                if (data.audioPath != null) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Audio Recording',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.mic, color: Colors.grey[600]),
+                        const SizedBox(width: 10),
+                        const Text('Audio recording available'),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Emergency Services Dashboard'),
+        title: const Text('Emergency Reports'),
         backgroundColor: Colors.red,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _emergencyData.isEmpty
-              ? const Center(
-                  child: Text('No emergency reports found'),
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle_outline, 
+                        size: 64, 
+                        color: Colors.green[400],
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No Active Emergencies',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'The area is currently safe',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               : ListView.builder(
+                  padding: const EdgeInsets.all(8),
                   itemCount: _emergencyData.length,
                   itemBuilder: (context, index) {
                     final data = _emergencyData[index];
                     return Card(
-                      margin: const EdgeInsets.all(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.warning, color: Colors.red),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Emergency Report ${index + 1}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      child: InkWell(
+                        onTap: () => _showEmergencyDetails(data),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red[50],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.warning_amber_rounded,
+                                      color: Colors.red,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Time: ${_formatDateTime(data.timestamp)}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Location: ${_formatLocation(data.latitude, data.longitude)}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                if (data.photoPath != null)
-                                  Chip(
-                                    label: const Text('Photo'),
-                                    avatar: const Icon(Icons.camera_alt, size: 16),
-                                    backgroundColor: Colors.blue.withOpacity(0.1),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Emergency Report',
+                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatDateTime(data.timestamp),
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                const SizedBox(width: 8),
-                                if (data.audioPath != null)
-                                  Chip(
-                                    label: const Text('Audio'),
-                                    avatar: const Icon(Icons.mic, size: 16),
-                                    backgroundColor: Colors.green.withOpacity(0.1),
+                                  const Icon(
+                                    Icons.chevron_right,
+                                    color: Colors.grey,
                                   ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
