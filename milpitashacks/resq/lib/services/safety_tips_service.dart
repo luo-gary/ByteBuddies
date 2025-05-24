@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:flutter/services.dart';
 
 class SafetyTipsService {
   static final SafetyTipsService _instance = SafetyTipsService._internal();

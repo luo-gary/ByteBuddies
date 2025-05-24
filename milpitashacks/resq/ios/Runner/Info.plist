@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -41,9 +45,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CADisableMinimumFrameDurationOnPhone</key>
-	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>ResQ Link needs access to your camera to capture photos during emergencies for better assistance and situation assessment.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>ResQ Link needs access to location to help emergency responders find you and to connect with nearby users during emergencies.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>ResQ Link needs access to location to help emergency responders find you and to connect with nearby users during emergencies, even when the app is in the background.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ResQ Link needs access to your microphone to record audio messages during emergencies.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ResQ Link needs access to the local network to connect with nearby devices during emergencies when internet is not available.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>ResQ Link uses Bluetooth to discover and connect with nearby devices during emergencies.</string>
 </dict>
 </plist>

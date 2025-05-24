@@ -34,10 +34,10 @@ dependencies:
   permission_handler: ^11.2.1
   record: ^5.0.4
   geolocator: ^10.1.0
-  path_provider: ^2.1.2
+  path_provider: ^2.0.15
   cupertino_icons: ^1.0.2
   nearby_connections: ^4.0.1
-  tflite_flutter: ^0.10.4
+  tflite_flutter: ^0.8.0
   image: ^4.1.7
   uuid: ^4.3.3
 

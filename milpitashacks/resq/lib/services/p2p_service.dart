@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:nearby_connections/nearby_connections.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/emergency_data.dart';
 
 class P2PService {
@@ -10,15 +12,16 @@ class P2PService {
   final Nearby _nearby = Nearby();
   bool _isAdvertising = false;
   bool _isDiscovering = false;
+  final Set<String> _connectedPeers = {};
 
-  static const String _strategy = Strategy.P2P_STAR;
+  static const Strategy _strategy = Strategy.P2P_STAR;
   static const String _serviceId = 'com.resqlink.emergency';
 
   Future<bool> startAdvertising() async {
     if (_isAdvertising) return true;
 
     try {
-      bool permissionGranted = await _nearby.askLocationPermission();
+      bool permissionGranted = await Permission.location.request().isGranted;
       if (!permissionGranted) return false;
 
       await _nearby.startAdvertising(
@@ -42,14 +45,16 @@ class P2PService {
     if (_isDiscovering) return true;
 
     try {
-      bool permissionGranted = await _nearby.askLocationPermission();
+      bool permissionGranted = await Permission.location.request().isGranted;
       if (!permissionGranted) return false;
 
       await _nearby.startDiscovery(
         'DEVICE_${DateTime.now().millisecondsSinceEpoch}',
         _strategy,
-        onEndpointFound: _onEndpointFound,
-        onEndpointLost: _onEndpointLost,
+        onEndpointFound: (String id, String name, String serviceId) {
+          _onEndpointFound(id, name, serviceId);
+        },
+        onEndpointLost: (id) => print('Lost endpoint: $id'),
         serviceId: _serviceId,
       );
 
@@ -71,15 +76,19 @@ class P2PService {
 
   void _onConnectionResult(String id, Status status) {
     if (status == Status.CONNECTED) {
+      _connectedPeers.add(id);
       _sendUnsentEmergencyData(id);
+    } else if (status == Status.REJECTED || status == Status.ERROR) {
+      _connectedPeers.remove(id);
     }
   }
 
   void _onDisconnected(String id) {
+    _connectedPeers.remove(id);
     print('Disconnected from: $id');
   }
 
-  void _onEndpointFound(String id, String userName, String serviceId) {
+  void _onEndpointFound(String id, String name, String serviceId) {
     _nearby.requestConnection(
       'DEVICE_${DateTime.now().millisecondsSinceEpoch}',
       id,
@@ -87,10 +96,6 @@ class P2PService {
       onConnectionResult: _onConnectionResult,
       onDisconnected: _onDisconnected,
     );
-  }
-
-  void _onEndpointLost(String id) {
-    print('Lost endpoint: $id');
   }
 
   void _onPayloadReceived(String id, Payload payload) {
@@ -123,6 +128,27 @@ class P2PService {
     }
   }
 
+  Future<void> broadcastEmergencyData(EmergencyData data) async {
+    try {
+      // Send to all connected peers
+      for (var endpointId in _connectedPeers) {
+        try {
+          await _nearby.sendBytesPayload(
+            endpointId,
+            Uint8List.fromList(jsonEncode(data.toJson()).codeUnits),
+          );
+        } catch (e) {
+          print('Error sending to endpoint $endpointId: $e');
+          // Remove the peer if we can't send to it
+          _connectedPeers.remove(endpointId);
+        }
+      }
+    } catch (e) {
+      print('Error broadcasting emergency data: $e');
+      rethrow;
+    }
+  }
+
   Future<void> stopAdvertising() async {
     if (!_isAdvertising) return;
     await _nearby.stopAdvertising();
@@ -137,6 +163,7 @@ class P2PService {
 
   Future<void> stopAllEndpoints() async {
     await _nearby.stopAllEndpoints();
+    _connectedPeers.clear();
     _isAdvertising = false;
     _isDiscovering = false;
   }

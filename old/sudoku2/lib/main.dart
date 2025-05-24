@@ -93,7 +93,7 @@ class _SudokuGameState extends State<SudokuGame> {
           key == LogicalKeyboardKey.digit7 ||
           key == LogicalKeyboardKey.digit8 ||
           key == LogicalKeyboardKey.digit9) {
-        final number = int.parse(key.keyLabel!);
+        final number = int.parse(key.keyLabel);
         if (!fixedNumbers[selectedRow!][selectedCol!]) {
           setState(() {
             board[selectedRow!][selectedCol!] = number;

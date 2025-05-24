@@ -1,13 +1,15 @@
-import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/emergency_data.dart';
 import '../services/ai_service.dart';
 import '../services/p2p_service.dart';
+import '../screens/emergency_result_screen.dart';
 
 class EmergencyCaptureScreen extends StatefulWidget {
   const EmergencyCaptureScreen({super.key});
@@ -24,7 +26,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   String? _photoPath;
   String? _audioPath;
   Position? _currentPosition;
-  final _audioRecorder = Record();
+  final _audioRecorder = AudioRecorder();
   final _aiService = AIService();
   final _p2pService = P2PService();
   Map<String, dynamic>? _analysis;
@@ -105,10 +107,24 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
       });
       _analyzeScene();
     } else {
-      await _audioRecorder.start();
+      await _startRecording();
       setState(() {
         _isRecording = true;
       });
+    }
+  }
+
+  Future<void> _startRecording() async {
+    try {
+      String filePath = await getApplicationDocumentsDirectory()
+          .then((value) => '${value.path}/${_generateRandomId()}.wav');
+
+      await _audioRecorder.start(
+        const RecordConfig(encoder: AudioEncoder.wav),
+        path: filePath,
+      );
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
     }
   }
 
@@ -138,36 +154,78 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
   }
 
   Future<void> _sendEmergencyData() async {
-    if (_currentPosition == null || _photoPath == null) return;
-
-    final emergencyData = EmergencyData(
-      id: const Uuid().v4(),
-      timestamp: DateTime.now(),
-      latitude: _currentPosition!.latitude,
-      longitude: _currentPosition!.longitude,
-      photoPath: _photoPath,
-      audioPath: _audioPath,
-    );
-
-    await EmergencyData.saveEmergencyData(emergencyData);
-
-    // Show confirmation dialog
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Emergency Alert Sent'),
-        content: const Text(
-          'Your emergency alert has been saved and will be shared with nearby devices and rescue teams.',
+    if (_currentPosition == null || _photoPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please capture a photo and ensure location access is granted'),
+          backgroundColor: Colors.red,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+      );
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      final emergencyData = EmergencyData(
+        id: const Uuid().v4(),
+        timestamp: DateTime.now(),
+        latitude: _currentPosition!.latitude,
+        longitude: _currentPosition!.longitude,
+        photoPath: _photoPath,
+        audioPath: _audioPath,
+      );
+
+      await EmergencyData.saveEmergencyData(emergencyData);
+
+      // Broadcast to nearby devices
+      await _p2pService.broadcastEmergencyData(emergencyData);
+
+      if (!mounted) return;
+      
+      setState(() {
+        _isProcessing = false;
+      });
+
+      // Navigate to result screen instead of showing dialog
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EmergencyResultScreen(
+            emergencyData: emergencyData,
+            analysis: _analysis ?? {
+              'detectedSituation': 'Emergency situation detected',
+              'severity': 'Medium',
+            },
           ),
-        ],
-      ),
-    );
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error sending emergency data: $e');
+      if (!mounted) return;
+      
+      setState(() {
+        _isProcessing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending emergency data: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _generateRandomId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+    return List.generate(
+      10,
+      (index) => chars[random.nextInt(chars.length)],
+    ).join();
   }
 
   @override
@@ -245,7 +303,9 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
                     Container(
                       color: Colors.black.withOpacity(0.5),
                       child: const Center(
-                        child: CircularProgressIndicator(),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                        ),
                       ),
                     ),
                 ],
@@ -258,7 +318,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   IconButton(
-                    onPressed: _capturePhoto,
+                    onPressed: _isProcessing ? null : _capturePhoto,
                     icon: const Icon(
                       Icons.camera,
                       color: Colors.white,
@@ -266,7 +326,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: _toggleRecording,
+                    onPressed: _isProcessing ? null : _toggleRecording,
                     icon: Icon(
                       _isRecording ? Icons.stop : Icons.mic,
                       color: _isRecording ? Colors.red : Colors.white,
@@ -274,10 +334,10 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: _photoPath != null ? _sendEmergencyData : null,
+                    onPressed: (_photoPath != null && !_isProcessing) ? _sendEmergencyData : null,
                     icon: Icon(
                       Icons.send,
-                      color: _photoPath != null ? Colors.red : Colors.grey,
+                      color: (_photoPath != null && !_isProcessing) ? Colors.red : Colors.grey,
                       size: 32,
                     ),
                   ),
