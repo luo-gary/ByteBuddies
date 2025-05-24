@@ -1,46 +1,79 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:nearby_connections/nearby_connections.dart';
+import 'package:flutter_nearby_connections/flutter_nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../models/emergency_data.dart';
 
 class P2PService {
   static final P2PService _instance = P2PService._internal();
   factory P2PService() => _instance;
   P2PService._internal();
 
-  final Nearby _nearby = Nearby();
+  final NearbyService _nearbyService = NearbyService();
   bool _isInitialized = false;
-  StreamController<String>? _stateController;
-  final Set<String> _connectedEndpoints = {};
+  StreamSubscription? _stateSubscription;
+  StreamSubscription? _dataSubscription;
+  final _devicesController = StreamController<List<Device>>.broadcast();
+  List<Device> _connectedDevices = [];
 
-  final String _serviceId = 'com.resqlink.emergency';
-  final Strategy _strategy = Strategy.P2P_CLUSTER;
+  Stream<List<Device>> get devicesStream => _devicesController.stream;
+  List<Device> get connectedDevices => _connectedDevices;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     try {
-      // Request necessary permissions
+      // Request permissions first
       await _requestPermissions();
 
-      // Initialize state controller
-      _stateController = StreamController<String>.broadcast();
-      _stateController?.stream.listen(
-        (state) {
-          debugPrint('Nearby Connections state changed: $state');
-        },
-        onError: (error) {
-          debugPrint('Nearby Connections error: $error');
+      // Initialize the service
+      bool initialized = await _nearbyService.init(
+        serviceType: 'resq',
+        strategy: Strategy.P2P_STAR,
+        callback: (devicesList) {
+          debugPrint('Device list updated: ${devicesList.length} devices');
+          _handleDevicesUpdate(devicesList);
         },
       );
 
+      if (!initialized) {
+        throw Exception('Failed to initialize nearby service');
+      }
+
+      // Set up data received subscription
+      _setupDataSubscription();
+
       _isInitialized = true;
+      debugPrint('P2P service initialized successfully');
     } catch (e) {
       debugPrint('Error initializing P2P service: $e');
       _isInitialized = false;
+      rethrow;
+    }
+  }
+
+  void _setupDataSubscription() {
+    _dataSubscription?.cancel();
+    _dataSubscription = _nearbyService.dataReceivedSubscription(
+      callback: (deviceId, data) {
+        debugPrint('Received data from $deviceId: $data');
+        // Parse and handle the incoming data
+        try {
+          // You can parse the data here if it's JSON
+          debugPrint('Successfully received data from device: $deviceId');
+        } catch (e) {
+          debugPrint('Error processing received data: $e');
+        }
+      } as DataReceivedCallback,
+    );
+  }
+
+  void _handleDevicesUpdate(List<Device> devices) {
+    _connectedDevices = devices.where((d) => d.state == SessionState.connected).toList();
+    _devicesController.add(_connectedDevices);
+    
+    // Log device states
+    for (var device in devices) {
+      debugPrint('Device ${device.deviceId} - State: ${device.state}');
     }
   }
 
@@ -92,18 +125,14 @@ class P2PService {
     }
 
     try {
-      bool started = await _nearby.startAdvertising(
-        'device-${DateTime.now().millisecondsSinceEpoch}',
-        _strategy,
-        onConnectionInitiated: _onConnectionInitiated,
-        onConnectionResult: _onConnectionResult,
-        onDisconnected: _onDisconnected,
-        serviceId: _serviceId,
-      );
-
-      debugPrint('Advertising ${started ? 'started' : 'failed to start'}');
+      bool started = await _nearbyService.startAdvertisingPeer();
+      if (!started) {
+        throw Exception('Failed to start advertising');
+      }
+      debugPrint('Started advertising successfully');
     } catch (e) {
       debugPrint('Error starting advertising: $e');
+      rethrow;
     }
   }
 
@@ -113,99 +142,60 @@ class P2PService {
     }
 
     try {
-      bool started = await _nearby.startDiscovery(
-        'device-${DateTime.now().millisecondsSinceEpoch}',
-        _strategy,
-        onEndpointFound: (String id, String userName, String serviceId) {
-          debugPrint('Found endpoint: $id, user: $userName, service: $serviceId');
-          _onEndpointFound(id, userName, serviceId);
-        },
-        onEndpointLost: (id) => debugPrint('Lost endpoint: $id'),
-        serviceId: _serviceId,
-      );
-
-      debugPrint('Discovery ${started ? 'started' : 'failed to start'}');
+      bool started = await _nearbyService.startBrowsingForPeers();
+      if (!started) {
+        throw Exception('Failed to start discovery');
+      }
+      debugPrint('Started discovery successfully');
     } catch (e) {
       debugPrint('Error starting discovery: $e');
+      rethrow;
     }
   }
 
-  void _onConnectionInitiated(String id, ConnectionInfo info) {
-    debugPrint('Connection initiated with device: $id');
-    _nearby.acceptConnection(
-      id,
-      onPayLoadRecieved: _onPayloadReceived,
-      onPayloadTransferUpdate: _onPayloadTransferUpdate,
-    );
-  }
-
-  void _onConnectionResult(String id, Status status) {
-    debugPrint('Connection result with device $id: $status');
-    if (status == Status.CONNECTED) {
-      _connectedEndpoints.add(id);
-    } else {
-      _connectedEndpoints.remove(id);
+  Future<void> sendEmergencyData(String deviceId, Map<String, dynamic> data) async {
+    if (!_isInitialized) {
+      await initialize();
     }
-  }
 
-  void _onDisconnected(String id) {
-    debugPrint('Disconnected from device: $id');
-    _connectedEndpoints.remove(id);
-  }
+    if (_connectedDevices.isEmpty) {
+      debugPrint('No connected devices to send data to');
+      return;
+    }
 
-  void _onEndpointFound(String id, String userName, String serviceId) {
-    _nearby.requestConnection(
-      'device-${DateTime.now().millisecondsSinceEpoch}',
-      id,
-      onConnectionInitiated: _onConnectionInitiated,
-      onConnectionResult: _onConnectionResult,
-      onDisconnected: _onDisconnected,
-    );
-  }
-
-  void _onPayloadReceived(String id, Payload payload) {
-    debugPrint('Received payload from $id: ${payload.type}');
-  }
-
-  void _onPayloadTransferUpdate(String id, PayloadTransferUpdate update) {
-    debugPrint('Payload transfer update from $id: ${update.status}');
+    try {
+      final jsonData = data.toString(); // Simple conversion for now
+      bool sent = await _nearbyService.sendMessage(deviceId, jsonData);
+      if (!sent) {
+        throw Exception('Failed to send message to device: $deviceId');
+      }
+      debugPrint('Emergency data sent successfully to device: $deviceId');
+    } catch (e) {
+      debugPrint('Error sending emergency data: $e');
+      rethrow;
+    }
   }
 
   Future<void> stopAllEndpoints() async {
     if (!_isInitialized) return;
 
     try {
-      await _nearby.stopAllEndpoints();
-      await _nearby.stopAdvertising();
-      await _nearby.stopDiscovery();
-      await _stateController?.close();
-      _stateController = null;
-      _connectedEndpoints.clear();
+      await _nearbyService.stopBrowsingForPeers();
+      await _nearbyService.stopAdvertisingPeer();
+      _connectedDevices.clear();
+      _devicesController.add(_connectedDevices);
       _isInitialized = false;
       debugPrint('All P2P endpoints stopped');
     } catch (e) {
-      debugPrint('Error stopping endpoints: $e');
+      debugPrint('Error stopping P2P endpoints: $e');
+      rethrow;
     }
   }
 
-  Future<void> sendEmergencyData(Map<String, dynamic> data) async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-
-    if (_connectedEndpoints.isEmpty) {
-      debugPrint('No connected endpoints to send data to');
-      return;
-    }
-
-    try {
-      final bytes = Uint8List.fromList(data.toString().codeUnits);
-      for (final endpointId in _connectedEndpoints) {
-        await _nearby.sendBytesPayload(endpointId, bytes);
-        debugPrint('Emergency data sent to endpoint: $endpointId');
-      }
-    } catch (e) {
-      debugPrint('Error sending emergency data: $e');
-    }
+  void dispose() {
+    _stateSubscription?.cancel();
+    _dataSubscription?.cancel();
+    _devicesController.close();
+    stopAllEndpoints();
   }
 } 

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.2.3 <4.0.0'
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -31,19 +31,21 @@ dependencies:
   flutter:
     sdk: flutter
   camera: ^0.10.5+9
-  permission_handler: ^11.0.1
+  permission_handler: ^11.2.0
   record: ^5.0.4
   geolocator: ^10.1.0
   path_provider: ^2.1.2
   cupertino_icons: ^1.0.2
-  nearby_connections: ^4.0.1
+  flutter_nearby_connections: ^1.1.2
   image: ^4.1.7
-  uuid: ^4.2.2
-  http: ^1.1.0
+  uuid: ^4.3.3
+  http: ^1.2.0
   intl: ^0.19.0
   flutter_dotenv: ^5.1.0
   audioplayers: ^5.2.1
-  url_launcher: ^6.2.1
+  url_launcher: ^6.2.4
+  sqflite: ^2.3.2
+  path: ^1.8.3
 
 dev_dependencies:
   flutter_test:

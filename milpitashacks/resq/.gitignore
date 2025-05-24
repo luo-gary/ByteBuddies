@@ -5,11 +5,9 @@
 *.swp
 .DS_Store
 .atom/
-.build/
 .buildlog/
 .history
 .svn/
-.swiftpm/
 migrate_working_dir/
 
 # IntelliJ related
@@ -31,6 +29,7 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+.env
 
 # Symbolication related
 app.*.symbols
@@ -43,8 +42,27 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Environment variables
-.env
-*.env
-.env.*
-!.env.example
+# Database files
+*.db
+*.db-journal
+/emergency_reports.db*
+
+# Media files
+*.jpg
+*.jpeg
+*.png
+*.mp3
+*.wav
+*.m4a
+*.aac
+
+# Local development
+/coverage/
+.test_coverage.dart
+/doc/
+/ios/Pods/
+/ios/.symlinks/
+/ios/Flutter/ephemeral/
+/macos/Flutter/ephemeral/
+/windows/Flutter/ephemeral/
+/linux/Flutter/ephemeral/

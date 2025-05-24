@@ -41,63 +41,83 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
 
   Future<void> _requestPermissions() async {
     try {
-      // Request camera permission first
-      final cameraStatus = await Permission.camera.request();
-      if (!cameraStatus.isGranted) {
+      // Request all permissions at once
+      Map<Permission, PermissionStatus> statuses = await [
+        Permission.camera,
+        Permission.microphone,
+        Permission.location,
+        Permission.bluetooth,
+        Permission.bluetoothAdvertise,
+        Permission.bluetoothConnect,
+        Permission.bluetoothScan,
+      ].request();
+
+      // Check if any permission is denied
+      List<Permission> deniedPermissions = [];
+      statuses.forEach((permission, status) {
+        if (!status.isGranted) {
+          deniedPermissions.add(permission);
+        }
+      });
+
+      if (deniedPermissions.isNotEmpty) {
         if (!mounted) return;
-        // Show settings dialog if permission is permanently denied
-        if (cameraStatus.isPermanentlyDenied) {
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Camera Permission Required'),
-              content: const Text(
-                'Camera access is required to capture emergency photos. Please enable it in settings.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+        // Show settings dialog for denied permissions
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Permissions Required'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'The following permissions are required for full functionality:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    await openAppSettings();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
+                const SizedBox(height: 8),
+                ...deniedPermissions.map((permission) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    '• ${_getPermissionDescription(permission)}',
                   ),
-                  child: const Text('Open Settings'),
+                )),
+                const SizedBox(height: 8),
+                const Text(
+                  'Please enable these permissions in settings to use all features.',
                 ),
               ],
             ),
-          );
-          return;
-        }
-        throw Exception('Camera permission is required');
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _initializeWithLimitedFeatures();
+                },
+                child: const Text('Continue with Limited Features'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await openAppSettings();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          ),
+        );
+        return;
       }
 
-      // Only initialize camera after permission is granted
+      // Initialize camera and other features
       await _initializeCamera();
-
-      // Request other permissions
-      final micStatus = await Permission.microphone.request();
-      final locationStatus = await Permission.location.request();
-      final bluetoothStatus = await Permission.bluetooth.request();
-      final bluetoothAdvertiseStatus = await Permission.bluetoothAdvertise.request();
-      final bluetoothConnectStatus = await Permission.bluetoothConnect.request();
-      final bluetoothScanStatus = await Permission.bluetoothScan.request();
-
-      if (!micStatus.isGranted || 
-          !locationStatus.isGranted ||
-          !bluetoothStatus.isGranted || 
-          !bluetoothAdvertiseStatus.isGranted ||
-          !bluetoothConnectStatus.isGranted ||
-          !bluetoothScanStatus.isGranted) {
-        throw Exception('Additional permissions are required for full functionality');
-      }
+      await _getCurrentLocation();
+      await _startP2PServices();
     } catch (e) {
       debugPrint('Error requesting permissions: $e');
       if (!mounted) return;
@@ -115,6 +135,46 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
           ),
         ),
       );
+    }
+  }
+
+  String _getPermissionDescription(Permission permission) {
+    switch (permission) {
+      case Permission.camera:
+        return 'Camera (required for capturing emergency photos)';
+      case Permission.microphone:
+        return 'Microphone (required for voice recording)';
+      case Permission.location:
+        return 'Location (required for emergency services to find you)';
+      case Permission.bluetooth:
+        return 'Bluetooth (required for P2P communication)';
+      case Permission.bluetoothAdvertise:
+        return 'Bluetooth Advertising (required for P2P communication)';
+      case Permission.bluetoothConnect:
+        return 'Bluetooth Connect (required for P2P communication)';
+      case Permission.bluetoothScan:
+        return 'Bluetooth Scan (required for P2P communication)';
+      default:
+        return permission.toString();
+    }
+  }
+
+  Future<void> _initializeWithLimitedFeatures() async {
+    // Initialize only features that have permissions
+    try {
+      if (await Permission.camera.isGranted) {
+        await _initializeCamera();
+      }
+      if (await Permission.location.isGranted) {
+        await _getCurrentLocation();
+      }
+      if (await Permission.bluetoothAdvertise.isGranted &&
+          await Permission.bluetoothConnect.isGranted &&
+          await Permission.bluetoothScan.isGranted) {
+        await _startP2PServices();
+      }
+    } catch (e) {
+      debugPrint('Error initializing with limited features: $e');
     }
   }
 
@@ -470,7 +530,11 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
         audioPath: _audioPath,
       );
 
-      await EmergencyData.saveEmergencyData(emergencyData);
+      // Save emergency data with analysis
+      await EmergencyData.saveEmergencyData(
+        emergencyData,
+        analysis: _analysis,
+      );
 
       if (!mounted) return;
       
@@ -479,17 +543,13 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> {
       });
 
       // Navigate to result screen
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => EmergencyResultScreen(
             emergencyData: emergencyData,
-            analysis: _analysis ?? {
-              'detectedSituation': 'Emergency situation detected',
-              'severity': 'Medium',
-              'description': 'Emergency situation reported',
-              'audioKeywords': <String>[],
-            },
+            initialAnalysis: _analysis ?? {},
+            openAIService: _openAIService,
           ),
         ),
       );

@@ -2,18 +2,50 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/emergency_data.dart';
-import '../screens/emergency_services_screen.dart';
+import '../services/openai_service.dart';
 
-class EmergencyResultScreen extends StatelessWidget {
+class EmergencyResultScreen extends StatefulWidget {
   final EmergencyData emergencyData;
-  final Map<String, dynamic> analysis;
-  final String emergencyNumber = "(650) 732-8894";
+  final Map<String, dynamic> initialAnalysis;
+  final OpenAIService openAIService;
 
   const EmergencyResultScreen({
     super.key,
     required this.emergencyData,
-    required this.analysis,
+    required this.initialAnalysis,
+    required this.openAIService,
   });
+
+  @override
+  State<EmergencyResultScreen> createState() => _EmergencyResultScreenState();
+}
+
+class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
+  late Map<String, dynamic> _analysis;
+  bool _isAnalyzing = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _analysis = widget.initialAnalysis;
+    _listenToAnalysisUpdates();
+  }
+
+  void _listenToAnalysisUpdates() {
+    widget.openAIService.analysisStream.listen(
+      (updatedAnalysis) {
+        setState(() {
+          _analysis = updatedAnalysis;
+          _isAnalyzing = updatedAnalysis['isAnalyzing'] ?? false;
+        });
+      },
+      onError: (error) {
+        debugPrint('Error in analysis stream: $error');
+      },
+    );
+  }
+
+  final String emergencyNumber = "(650) 732-8894";
 
   Future<void> _callEmergencyServices() async {
     final Uri phoneUri = Uri.parse('tel:$emergencyNumber');
@@ -58,7 +90,7 @@ class EmergencyResultScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      analysis['detectedSituation'] ?? 'Emergency Reported',
+                      _analysis['detectedSituation'] ?? 'Emergency Reported',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -66,13 +98,27 @@ class EmergencyResultScreen extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    if (analysis['severity'] != null) ...[
+                    if (_analysis['severity'] != null) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Severity: ${analysis['severity']}',
+                        'Severity: ${_analysis['severity']}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                    if (_isAnalyzing) ...[
+                      const SizedBox(height: 16),
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Analyzing emergency scene...',
+                        style: TextStyle(
+                          fontSize: 14,
                           color: Colors.red,
                         ),
                       ),
@@ -87,9 +133,9 @@ class EmergencyResultScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: Colors.red.shade50,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.blue.shade200),
+                  border: Border.all(color: Colors.red.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,30 +143,58 @@ class EmergencyResultScreen extends StatelessWidget {
                     const Row(
                       children: [
                         Icon(
-                          Icons.tips_and_updates,
-                          color: Colors.blue,
+                          Icons.warning_rounded,
+                          color: Colors.red,
                           size: 32,
                         ),
                         SizedBox(width: 12),
                         Text(
-                          'Safety Tips',
+                          'IMMEDIATE ACTIONS',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue,
+                            color: Colors.red,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ..._buildSafetyTips(),
+                    ...(_analysis['safetyTips'] as List<String>? ?? [
+                      'Stay away from immediate danger',
+                      'Call emergency services',
+                      'Follow official instructions',
+                    ]).map((tip) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.arrow_right_rounded,
+                            color: Colors.red,
+                            size: 32,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              tip.toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red,
+                                height: 1.3,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )).toList(),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Description
-              if (analysis['description'] != null) ...[
+              // Description - Only shown to emergency services
+              if (false && _analysis['description'] != null) ...[
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -141,7 +215,7 @@ class EmergencyResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        analysis['description'],
+                        _analysis['description'],
                         style: const TextStyle(
                           fontSize: 16,
                           height: 1.5,
@@ -153,7 +227,72 @@ class EmergencyResultScreen extends StatelessWidget {
                 const SizedBox(height: 24),
               ],
 
-              // Emergency Services
+              // Audio Keywords
+              if (_analysis['audioKeywords'] != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.shade50,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.purple.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(
+                            Icons.mic,
+                            color: Colors.purple,
+                            size: 24,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Audio Analysis',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: (_analysis['audioKeywords'] as List<String>)
+                            .map((keyword) => Chip(
+                                  label: Text(keyword),
+                                  backgroundColor: Colors.purple.shade100,
+                                ))
+                            .toList(),
+                      ),
+                      if (_analysis['transcription'] != null) ...[
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Transcription:',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _analysis['transcription'],
+                          style: const TextStyle(
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Emergency Services Contact
               Card(
                 color: Colors.red.shade50,
                 child: Padding(
@@ -214,12 +353,12 @@ class EmergencyResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Latitude: ${emergencyData.latitude.toStringAsFixed(6)}',
+                        'Latitude: ${widget.emergencyData.latitude.toStringAsFixed(6)}',
                         style: const TextStyle(fontSize: 16),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Longitude: ${emergencyData.longitude.toStringAsFixed(6)}',
+                        'Longitude: ${widget.emergencyData.longitude.toStringAsFixed(6)}',
                         style: const TextStyle(fontSize: 16),
                       ),
                     ],
@@ -241,9 +380,9 @@ class EmergencyResultScreen extends StatelessWidget {
                     ),
                   ),
                   icon: const Icon(Icons.phone_forwarded),
-                  label: const Text(
-                    'Call (650) 732-8894',
-                    style: TextStyle(
+                  label: Text(
+                    'Call $emergencyNumber',
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -255,70 +394,5 @@ class EmergencyResultScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  List<Widget> _buildSafetyTips() {
-    final List<String> tips = _getSafetyTips();
-    return tips.map((tip) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.check_circle,
-            color: Colors.blue,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              tip,
-              style: const TextStyle(
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    )).toList();
-  }
-
-  List<String> _getSafetyTips() {
-    final situation = analysis['detectedSituation']?.toString().toLowerCase() ?? '';
-    
-    if (situation.contains('fire')) {
-      return [
-        'Stay low to avoid smoke inhalation',
-        'Feel doors for heat before opening',
-        'Use stairs, not elevators',
-        'Once out, stay out',
-        'Call emergency services immediately',
-      ];
-    } else if (situation.contains('flood')) {
-      return [
-        'Move to higher ground immediately',
-        'Avoid walking through moving water',
-        'Stay away from power lines',
-        'Do not drive through flooded areas',
-        'Listen to emergency broadcasts',
-      ];
-    } else if (situation.contains('earthquake')) {
-      return [
-        'Drop, Cover, and Hold On',
-        'Stay away from windows and exterior walls',
-        'If inside, stay inside',
-        'If outside, move to an open area',
-        'Be prepared for aftershocks',
-      ];
-    } else {
-      return [
-        'Stay calm and assess the situation',
-        'Keep away from immediate danger',
-        'Follow official emergency instructions',
-        'Help others if it\'s safe to do so',
-        'Wait for emergency services to arrive',
-      ];
-    }
   }
 } 

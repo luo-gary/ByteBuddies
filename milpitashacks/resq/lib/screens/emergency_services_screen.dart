@@ -31,9 +31,9 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
 
   Future<void> _loadEmergencyData() async {
     try {
-      final data = await EmergencyData.loadEmergencyData();
+      final reports = await EmergencyData.getAllReports();
       setState(() {
-        _emergencyData = data;
+        _emergencyData = reports.map((data) => EmergencyData.fromJson(data)).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -68,6 +68,7 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> {
       }
     } catch (e) {
       debugPrint('Error playing audio: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error playing audio: ${e.toString()}'),
