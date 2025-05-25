@@ -65,7 +65,7 @@
       background: #ff6666;
     }
   </style>
-  <script src="flutter.js" defer></script>
+  <script src="flutter.js"></script>
 </head>
 <body>
   <div class="loading">
@@ -76,7 +76,7 @@
   </div>
 
   <script>
-    const serviceWorkerVersion = '"1246491871"';
+    const serviceWorkerVersion = '"2068367291"';
     
     async function initializeFlutter() {
       const loadingText = document.querySelector('#loading-text');
@@ -115,6 +115,11 @@
     }
 
     window.addEventListener('load', async function() {
+      if (!window.flutter) {
+        document.querySelector('#error-text').textContent = 'Flutter.js failed to load';
+        document.querySelector('#error-text').style.display = 'block';
+        return;
+      }
       try {
         await initializeFlutter();
       } catch (error) {
