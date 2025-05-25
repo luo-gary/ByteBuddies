@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -5,18 +6,41 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/emergency_capture_screen.dart';
 import 'screens/emergency_services_screen.dart';
 
-Future<void> main() async {
-  // Ensure Flutter bindings are initialized before anything else
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (e) {
-    debugPrint('Warning: .env file not found. Using fallback configuration.');
-    dotenv.env['OPENAI_API_KEY'] = '';
-  }
+void main() {
+  runZonedGuarded(() async {
+    // Ensure Flutter bindings are initialized before anything else
+    WidgetsFlutterBinding.ensureInitialized();
+    
+    try {
+      await dotenv.load(fileName: '.env');
+    } catch (e) {
+      debugPrint('Warning: .env file not found. Using fallback configuration.');
+      dotenv.env['OPENAI_API_KEY'] = '';
+    }
 
-  runApp(const ResQApp());
+    // For testing, start with a simple app first
+    if (kIsWeb) {
+      runApp(const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Text('Loading ResQ...', 
+              style: TextStyle(fontSize: 24),
+            ),
+          ),
+        ),
+      ));
+
+      // Short delay to ensure the test app renders
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    // Now run the real app
+    runApp(const ResQApp());
+  }, (error, stack) {
+    // Catch all Flutter initialization errors
+    debugPrint('🔥 Zone error: $error');
+    debugPrint(stack.toString());
+  });
 }
 
 class ResQApp extends StatelessWidget {

@@ -1,19 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
+  <!-- This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`. -->
   <base href="/">
 
   <meta charset="UTF-8">
@@ -55,40 +44,86 @@
       width: 64px;
       height: 64px;
     }
+    .error {
+      color: #ff4444;
+      max-width: 80%;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    .retry-button {
+      margin-top: 16px;
+      padding: 8px 16px;
+      background: #ff4444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .retry-button:hover {
+      background: #ff6666;
+    }
   </style>
-
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    const serviceWorkerVersion = '"1546737211"';
-  </script>
-  <!-- This script adds the flutter initialization JS code -->
   <script src="flutter.js" defer></script>
 </head>
 <body>
   <div class="loading">
     <img src="icons/Icon-192.png" alt="ResQ Logo">
     <span id="loading-text">Loading ResQ...</span>
+    <div id="error-text" class="error" style="display: none;"></div>
+    <button id="retry-button" class="retry-button" style="display: none;">Retry</button>
   </div>
+
   <script>
-    window.addEventListener('load', function(ev) {
-      var loadingText = document.querySelector('#loading-text');
-      
-      // Download main.dart.js
-      _flutter.loader.load({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        }
-      }).then(async function(engineInitializer) {
-        loadingText.textContent = 'Initializing engine...';
-        try {
-          const appRunner = await engineInitializer.initializeEngine();
-          loadingText.textContent = 'Starting app...';
-          await appRunner.runApp();
-        } catch (e) {
-          console.error('Error running app:', e);
-          loadingText.textContent = 'Error loading app. Please refresh the page.';
-        }
-      });
+    const serviceWorkerVersion = '"1246491871"';
+    
+    async function initializeFlutter() {
+      const loadingText = document.querySelector('#loading-text');
+      const errorText = document.querySelector('#error-text');
+      const retryButton = document.querySelector('#retry-button');
+
+      try {
+        loadingText.textContent = 'Initializing...';
+
+        // Initialize Flutter
+        await flutter.loader.init({
+          serviceWorker: {
+            serviceWorkerVersion: serviceWorkerVersion,
+          }
+        });
+
+        // Load the main.dart.js file
+        await flutter.loader.loadEntrypoint({
+          serviceWorker: {
+            serviceWorkerVersion: serviceWorkerVersion,
+          },
+          onEntrypointLoaded: async function(engineInitializer) {
+            const appRunner = await engineInitializer.initializeEngine();
+            await appRunner.runApp();
+            document.querySelector('.loading').style.display = 'none';
+          }
+        });
+      } catch (error) {
+        console.error('Flutter initialization error:', error);
+        loadingText.textContent = 'Failed to start ResQ';
+        errorText.textContent = error.message || 'Unknown error occurred';
+        errorText.style.display = 'block';
+        retryButton.style.display = 'block';
+        retryButton.onclick = initializeFlutter;
+      }
+    }
+
+    window.addEventListener('load', async function() {
+      try {
+        await initializeFlutter();
+      } catch (error) {
+        console.error('Setup error:', error);
+        document.querySelector('#error-text').textContent = 'Failed to initialize Flutter runtime';
+        document.querySelector('#error-text').style.display = 'block';
+        document.querySelector('#retry-button').style.display = 'block';
+        document.querySelector('#retry-button').onclick = initializeFlutter;
+      }
     });
   </script>
 </body>
