@@ -223,45 +223,53 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
     try {
       if (kIsWeb) {
         try {
-          bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-          if (!serviceEnabled) {
-            _showTopBanner('Location services are not available', Colors.orange);
+          // First check if location is supported in the browser
+          if (!await Geolocator.isLocationServiceEnabled()) {
+            debugPrint('⚠️ Location services not available in browser');
+            _showTopBanner('Location services are not available in this browser', Colors.orange);
+            _setDefaultPosition();
             return;
           }
 
+          // Check/request permissions through the browser's API
           LocationPermission permission = await Geolocator.checkPermission();
           if (permission == LocationPermission.denied) {
+            debugPrint('⚠️ Requesting location permission from browser');
             permission = await Geolocator.requestPermission();
             if (permission == LocationPermission.denied) {
-              _showTopBanner('Location permission denied by user', Colors.red);
+              debugPrint('⚠️ Browser location permission denied');
+              _showTopBanner('Please allow location access to help emergency responders find you', Colors.red);
+              _setDefaultPosition();
               return;
             }
           }
 
-          final position = await Geolocator.getCurrentPosition()
-              .timeout(const Duration(seconds: 5));
-          setState(() => _currentPosition = position);
-        } catch (e) {
-          debugPrint('⚠️ Web location error: $e');
-          final last = await Geolocator.getLastKnownPosition();
-          if (last != null) {
-            setState(() => _currentPosition = last);
-          } else {
-            // fallback to 0,0
-            setState(() => _currentPosition = Position(
-              latitude: 0,
-              longitude: 0,
-              accuracy: 0,
-              altitude: 0,
-              heading: 0,
-              speed: 0,
-              speedAccuracy: 0,
-              timestamp: DateTime.now(),
-              altitudeAccuracy: 0,
-              headingAccuracy: 0,
-            ));
+          if (permission == LocationPermission.deniedForever) {
+            debugPrint('⚠️ Browser location permission permanently denied');
+            _showTopBanner('Please enable location access in your browser settings', Colors.red);
+            _setDefaultPosition();
+            return;
           }
-          _showTopBanner('Location fallback to default', Colors.orange);
+
+          // Get position with high accuracy but reasonable timeout
+          final position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 10),
+          ).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('Location request timed out');
+            },
+          );
+          
+          if (mounted) {
+            setState(() => _currentPosition = position);
+            debugPrint('✅ Web location successfully obtained: ${position.latitude}, ${position.longitude}');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Web location error: ${e.runtimeType} - $e');
+          _showTopBanner('Unable to get location: ${e.toString()}', Colors.orange);
+          _setDefaultPosition();
         }
         return;
       }
@@ -579,6 +587,7 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
       final analysis = await _openAIService.analyzeEmergencyScene(
         imagePath: _photoPath!,
         audioPath: _audioPath,
+        position: _currentPosition,
       );
 
       setState(() {
@@ -844,5 +853,22 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
         ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
       }
     });
+  }
+
+  // Helper method to set default position
+  void _setDefaultPosition() {
+    if (!mounted) return;
+    setState(() => _currentPosition = Position(
+      latitude: 0,
+      longitude: 0,
+      accuracy: 0,
+      altitude: 0,
+      heading: 0,
+      speed: 0,
+      speedAccuracy: 0,
+      timestamp: DateTime.now(),
+      altitudeAccuracy: 0,
+      headingAccuracy: 0,
+    ));
   }
 } 

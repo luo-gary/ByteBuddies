@@ -4,6 +4,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:resq/services/emergency_prompt_service.dart';
+import 'package:resq/services/location_service.dart';
 
 class OpenAIService {
   final String _baseUrl = 'https://api.openai.com/v1';
@@ -22,6 +27,7 @@ class OpenAIService {
   Future<Map<String, dynamic>> analyzeEmergencyScene({
     required String imagePath,
     String? audioPath,
+    Position? position,
   }) async {
     // Return immediate default response
     final defaultResponse = {
@@ -32,21 +38,49 @@ class OpenAIService {
     };
 
     // Start background analysis
-    _startBackgroundAnalysis(imagePath, audioPath);
+    _startBackgroundAnalysis(imagePath, audioPath, position);
 
     return defaultResponse;
   }
 
-  Future<void> _startBackgroundAnalysis(String imagePath, String? audioPath) async {
+  Future<void> _startBackgroundAnalysis(String imagePath, String? audioPath, Position? position) async {
     try {
-      // Start both analyses concurrently
+      // Start all analyses concurrently
       final imageAnalysisFuture = _analyzeImage(imagePath);
       final audioAnalysisFuture = audioPath != null ? _analyzeAudio(audioPath) : null;
+      final locationInfoFuture = position != null ? 
+          LocationService.getBuildingInfo(position.latitude, position.longitude) : null;
 
       // Wait for image analysis
       final imageAnalysis = await imageAnalysisFuture;
+      
+      // Add location info if available
+      Map<String, dynamic> combinedAnalysis = {...imageAnalysis};
+      if (locationInfoFuture != null) {
+        try {
+          final locationInfo = await locationInfoFuture;
+          combinedAnalysis['buildingInfo'] = locationInfo['description'];
+          combinedAnalysis['address'] = locationInfo['address'];
+        } catch (e) {
+          debugPrint('Error getting location info: $e');
+        }
+      }
+
+      // Generate emergency prompt based on situation
+      final situation = EmergencyPromptService.parseSituation(combinedAnalysis['description']);
+      final emergencyType = _determineEmergencyType(situation);
+      if (emergencyType != null) {
+        final prompt = EmergencyPromptService.generatePrompt(emergencyType, situation);
+        try {
+          final response = await _getEmergencyGuidance(prompt);
+          combinedAnalysis['emergencyGuidance'] = response;
+        } catch (e) {
+          debugPrint('Error getting emergency guidance: $e');
+        }
+      }
+
       _analysisController.add({
-        ...imageAnalysis,
+        ...combinedAnalysis,
         'isAnalyzing': audioPath != null,
       });
 
@@ -54,7 +88,7 @@ class OpenAIService {
       if (audioAnalysisFuture != null) {
         final audioAnalysis = await audioAnalysisFuture;
         _analysisController.add({
-          ...imageAnalysis,
+          ...combinedAnalysis,
           'audioKeywords': audioAnalysis['keywords'],
           'transcription': audioAnalysis['transcription'],
           'isAnalyzing': false,
@@ -69,6 +103,55 @@ class OpenAIService {
         'isAnalyzing': false,
         'error': e.toString(),
       });
+    }
+  }
+
+  EmergencyType? _determineEmergencyType(Map<String, dynamic> situation) {
+    final description = situation['description']?.toLowerCase() ?? '';
+    if (description.contains('earthquake') || description.contains('shaking')) {
+      return EmergencyType.earthquake;
+    } else if (description.contains('fire') || description.contains('smoke')) {
+      return EmergencyType.fire;
+    } else if (description.contains('storm') || description.contains('hurricane') || 
+               description.contains('tornado')) {
+      return EmergencyType.storm;
+    }
+    return null;
+  }
+
+  Future<String> _getEmergencyGuidance(String prompt) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+        },
+        body: jsonEncode({
+          'model': 'gpt-4',
+          'messages': [
+            {
+              'role': 'system',
+              'content': 'You are an emergency response expert providing critical safety guidance.',
+            },
+            {
+              'role': 'user',
+              'content': prompt,
+            },
+          ],
+          'max_tokens': 100,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['choices'][0]['message']['content'];
+      } else {
+        throw Exception('Failed to get emergency guidance: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error getting emergency guidance: $e');
+      rethrow;
     }
   }
 
@@ -240,20 +323,33 @@ class OpenAIService {
             throw Exception('Failed to fetch audio blob: ${response.statusCode}');
           }
           
-          // Create a MultipartFile from the blob data
+          // Create a MultipartFile from the blob data with correct extension based on content type
+          final contentType = response.headers['content-type'] ?? 'audio/webm';
+          final extension = contentType.contains('webm') ? 'webm' : 
+                          contentType.contains('mp4') ? 'm4a' :
+                          contentType.contains('mpeg') ? 'mp3' : 'webm';
+          
           audioFile = http.MultipartFile.fromBytes(
             'file',
             response.bodyBytes,
-            filename: 'audio.opus', // Use opus extension for web
+            filename: 'audio.$extension',
+            contentType: MediaType.parse(contentType),
           );
         } else if (audioPath.startsWith('data:')) {
           // Handle data URL
+          final contentType = audioPath.split(';')[0].split(':')[1];
           final data = audioPath.split(',')[1];
           final bytes = base64Decode(data);
+          
+          final extension = contentType.contains('webm') ? 'webm' : 
+                          contentType.contains('mp4') ? 'm4a' :
+                          contentType.contains('mpeg') ? 'mp3' : 'webm';
+          
           audioFile = http.MultipartFile.fromBytes(
             'file',
             bytes,
-            filename: 'audio.opus',
+            filename: 'audio.$extension',
+            contentType: MediaType.parse(contentType),
           );
         } else {
           throw Exception('Invalid audio format for web');
@@ -307,7 +403,8 @@ class OpenAIService {
           final keywords = jsonDecode(keywordResponse.body)['choices'][0]['message']['content']
             .split(',')
             .map((k) => k.trim())
-            .toList();
+            .toList()
+            .cast<String>();
 
           return {
             'transcription': transcription,

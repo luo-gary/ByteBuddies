@@ -66,7 +66,7 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
     return '${lat.toStringAsFixed(6)}, ${long.toStringAsFixed(6)}';
   }
 
-  final String emergencyNumber = "(650) 732-8894";
+  final String emergencyNumber = "16507328894";
 
   Future<void> _callEmergencyServices() async {
     final Uri phoneUri = Uri.parse('tel:$emergencyNumber');
@@ -172,7 +172,7 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ...(_analysis['safetyTips'] as List<String>).map((tip) => Padding(
+                    ...(_analysis['safetyTips'] as List<dynamic>).map((tip) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Row(
                         children: [
@@ -180,7 +180,7 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              tip,
+                              tip.toString(),
                               style: const TextStyle(
                                 fontSize: 16,
                                 height: 1.5,
@@ -219,6 +219,106 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _analysis['description'],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Building Information
+            if (_analysis['buildingInfo'] != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.business,
+                          color: Colors.blue,
+                          size: 24,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Building Information',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_analysis['address'] != null) ...[
+                      Text(
+                        _analysis['address'],
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    Text(
+                      _analysis['buildingInfo'],
+                      style: const TextStyle(
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Emergency Guidance
+            if (_analysis['emergencyGuidance'] != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.warning_rounded,
+                          color: Colors.red,
+                          size: 24,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Emergency Guidance',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _analysis['emergencyGuidance'],
                       style: const TextStyle(
                         fontSize: 16,
                         height: 1.5,
@@ -282,8 +382,8 @@ class _EmergencyResultScreenState extends State<EmergencyResultScreen> {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: (_analysis['audioKeywords'] as List<String>).map((keyword) => Chip(
-                          label: Text(keyword),
+                        children: (_analysis['audioKeywords'] as List<dynamic>).map((keyword) => Chip(
+                          label: Text(keyword.toString()),
                           backgroundColor: Colors.blue.shade100,
                         )).toList(),
                       ),

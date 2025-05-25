@@ -11,15 +11,41 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ResQ">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Geolocation permissions policy -->
+  <meta http-equiv="permissions-policy" content="geolocation=self">
+  <meta http-equiv="feature-policy" content="geolocation 'self'">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>ResQ</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Development-only geolocation permission override for localhost -->
+  <script>
+    // Patch navigator.permissions.query for geolocation on localhost
+    if (window.location.hostname === 'localhost') {
+      const originalQuery = navigator.permissions.query;
+      navigator.permissions.query = (parameters) =>
+        parameters.name === 'geolocation'
+          ? Promise.resolve({ state: 'granted' })
+          : originalQuery(parameters);
+    }
+  </script>
+
+  <!-- Flutter initialization -->
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    const serviceWorkerVersion = '{{flutter_service_worker_version}}';
+  </script>
+
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
 
   <style>
     body {
@@ -65,7 +91,6 @@
       background: #ff6666;
     }
   </style>
-  <script src="flutter.js"></script>
 </head>
 <body>
   <div class="loading">
@@ -76,59 +101,42 @@
   </div>
 
   <script>
-    const serviceWorkerVersion = '{{flutter_service_worker_version}}';
-    
-    async function initializeFlutter() {
-      const loadingText = document.querySelector('#loading-text');
-      const errorText = document.querySelector('#error-text');
-      const retryButton = document.querySelector('#retry-button');
-
+    window.addEventListener('load', async function() {
+      let appRunner;
       try {
-        loadingText.textContent = 'Initializing...';
-
-        // Initialize Flutter
-        await flutter.loader.init({
+        // Initialize Flutter with improved error handling
+        await _flutter.loader.loadEntrypoint({
           serviceWorker: {
             serviceWorkerVersion: serviceWorkerVersion,
-          }
-        });
-
-        // Load the main.dart.js file
-        await flutter.loader.loadEntrypoint({
-          serviceWorker: {
-            serviceWorkerVersion: serviceWorkerVersion,
+            serviceWorkerUrl: 'flutter_service_worker.js?v=' + serviceWorkerVersion,
           },
           onEntrypointLoaded: async function(engineInitializer) {
-            const appRunner = await engineInitializer.initializeEngine();
-            await appRunner.runApp();
-            document.querySelector('.loading').style.display = 'none';
+            try {
+              // Initialize the Flutter engine
+              appRunner = await engineInitializer.initializeEngine({
+                useColorEmoji: true,
+                renderer: "html"
+              });
+              // Run the app
+              await appRunner.runApp();
+            } catch (e) {
+              console.error('Error initializing Flutter engine:', e);
+              document.querySelector('#error-text').textContent = 'Error initializing Flutter engine: ' + e;
+              document.querySelector('#error-text').style.display = 'block';
+              document.querySelector('#retry-button').style.display = 'block';
+            }
           }
         });
-      } catch (error) {
-        console.error('Flutter initialization error:', error);
-        loadingText.textContent = 'Failed to start ResQ';
-        errorText.textContent = error.message || 'Unknown error occurred';
-        errorText.style.display = 'block';
-        retryButton.style.display = 'block';
-        retryButton.onclick = initializeFlutter;
-      }
-    }
-
-    window.addEventListener('load', async function() {
-      if (!window.flutter) {
-        document.querySelector('#error-text').textContent = 'Flutter.js failed to load';
-        document.querySelector('#error-text').style.display = 'block';
-        return;
-      }
-      try {
-        await initializeFlutter();
-      } catch (error) {
-        console.error('Setup error:', error);
-        document.querySelector('#error-text').textContent = 'Failed to initialize Flutter runtime';
+      } catch (e) {
+        console.error('Error loading Flutter:', e);
+        document.querySelector('#error-text').textContent = 'Error loading Flutter: ' + e;
         document.querySelector('#error-text').style.display = 'block';
         document.querySelector('#retry-button').style.display = 'block';
-        document.querySelector('#retry-button').onclick = initializeFlutter;
       }
+    });
+
+    document.querySelector('#retry-button').addEventListener('click', function() {
+      window.location.reload();
     });
   </script>
 </body>
