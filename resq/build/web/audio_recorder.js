@@ -6,6 +6,23 @@ window.flutterWebRecorder = {
     chunks: []
 };
 
+// Function to get supported MIME type
+function getSupportedMimeType() {
+    const types = [
+        'audio/webm',
+        'audio/webm;codecs=opus',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/mpeg'
+    ];
+    for (const type of types) {
+        if (MediaRecorder.isTypeSupported(type)) {
+            return type;
+        }
+    }
+    return null;
+}
+
 // Start recording function
 window.startRecording = async function() {
     try {
@@ -23,10 +40,16 @@ window.startRecording = async function() {
                 noiseSuppression: true
             } 
         });
+
+        const mimeType = getSupportedMimeType();
+        if (!mimeType) {
+            throw new Error('No supported audio MIME type found');
+        }
         
-        // Create MediaRecorder instance with WAV format
+        // Create MediaRecorder instance
         const mediaRecorder = new MediaRecorder(stream, {
-            mimeType: 'audio/webm;codecs=opus'
+            mimeType: mimeType,
+            audioBitsPerSecond: 128000
         });
         window.flutterWebRecorder.mediaRecorder = mediaRecorder;
 
@@ -40,7 +63,7 @@ window.startRecording = async function() {
         // Handle recording stop
         mediaRecorder.onstop = async () => {
             try {
-                const blob = new Blob(window.flutterWebRecorder.chunks, { type: 'audio/webm' });
+                const blob = new Blob(window.flutterWebRecorder.chunks, { type: mimeType });
                 const reader = new FileReader();
                 
                 reader.onloadend = () => {
@@ -62,8 +85,8 @@ window.startRecording = async function() {
             }
         };
 
-        // Start recording with 10ms timeslice for more frequent ondataavailable events
-        mediaRecorder.start(10);
+        // Start recording with 1000ms timeslice for better compatibility
+        mediaRecorder.start(1000);
     } catch (error) {
         console.error('Error starting recording:', error);
         window.flutterWebRecorder.error = error.message || 'Failed to start recording';

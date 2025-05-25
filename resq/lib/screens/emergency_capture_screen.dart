@@ -14,6 +14,7 @@ import '../services/openai_service.dart';
 import '../services/p2p_service.dart';
 import '../screens/emergency_result_screen.dart';
 import 'dart:convert';
+import '../services/location_service.dart';
 
 class EmergencyCaptureScreen extends StatefulWidget {
   const EmergencyCaptureScreen({super.key});
@@ -223,52 +224,73 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
     try {
       if (kIsWeb) {
         try {
-          // First check if location is supported in the browser
-          if (!await Geolocator.isLocationServiceEnabled()) {
-            debugPrint('⚠️ Location services not available in browser');
-            _showTopBanner('Location services are not available in this browser', Colors.orange);
-            _setDefaultPosition();
-            return;
-          }
+          debugPrint('Checking web location services...');
 
+          debugPrint('Checking location permission...');
           // Check/request permissions through the browser's API
           LocationPermission permission = await Geolocator.checkPermission();
+          
+          // On web, we should always request permission to trigger the browser prompt
+          debugPrint('Requesting location permission from browser');
+          permission = await Geolocator.requestPermission();
+          
           if (permission == LocationPermission.denied) {
-            debugPrint('⚠️ Requesting location permission from browser');
-            permission = await Geolocator.requestPermission();
-            if (permission == LocationPermission.denied) {
-              debugPrint('⚠️ Browser location permission denied');
-              _showTopBanner('Please allow location access to help emergency responders find you', Colors.red);
-              _setDefaultPosition();
-              return;
-            }
+            debugPrint('Browser location permission denied');
+            _setDefaultPosition();
+            return;
           }
 
           if (permission == LocationPermission.deniedForever) {
-            debugPrint('⚠️ Browser location permission permanently denied');
-            _showTopBanner('Please enable location access in your browser settings', Colors.red);
+            debugPrint('Browser location permission permanently denied');
             _setDefaultPosition();
             return;
           }
 
-          // Get position with high accuracy but reasonable timeout
+          debugPrint('Getting current position...');
+          
+          // Try the HTML5 geolocation API directly first
+          try {
+            final html.Geolocation geolocation = html.window.navigator.geolocation;
+            await geolocation.getCurrentPosition(
+              enableHighAccuracy: true,
+              timeout: const Duration(seconds: 20),
+            ).then((html.Geoposition position) {
+              if (mounted) {
+                setState(() {
+                  _currentPosition = Position(
+                    latitude: position.coords!.latitude!.toDouble(),
+                    longitude: position.coords!.longitude!.toDouble(),
+                    timestamp: DateTime.now(),
+                    accuracy: position.coords!.accuracy?.toDouble() ?? 0.0,
+                    altitude: position.coords!.altitude?.toDouble() ?? 0.0,
+                    heading: position.coords!.heading?.toDouble() ?? 0.0,
+                    speed: position.coords!.speed?.toDouble() ?? 0.0,
+                    speedAccuracy: 0.0,
+                    altitudeAccuracy: position.coords!.altitudeAccuracy?.toDouble() ?? 0.0,
+                    headingAccuracy: 0.0,
+                  );
+                });
+                debugPrint('Web location obtained directly: ${position.coords!.latitude}, ${position.coords!.longitude}');
+              }
+            });
+            return;
+          } catch (e) {
+            debugPrint('Direct geolocation failed, trying Geolocator: $e');
+          }
+
+          // Fallback to Geolocator
           final position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 10),
-          ).timeout(
-            const Duration(seconds: 10),
-            onTimeout: () {
-              throw TimeoutException('Location request timed out');
-            },
+            desiredAccuracy: LocationAccuracy.best,
+            timeLimit: const Duration(seconds: 20),
           );
           
           if (mounted) {
             setState(() => _currentPosition = position);
-            debugPrint('✅ Web location successfully obtained: ${position.latitude}, ${position.longitude}');
+            debugPrint('Web location obtained via Geolocator: ${position.latitude}, ${position.longitude}');
           }
         } catch (e) {
-          debugPrint('⚠️ Web location error: ${e.runtimeType} - $e');
-          _showTopBanner('Unable to get location: ${e.toString()}', Colors.orange);
+          debugPrint('Web location error: ${e.runtimeType} - $e');
+          _showTopBanner('Unable to get location. Please check your browser settings and try again.', Colors.orange);
           _setDefaultPosition();
         }
         return;
@@ -740,27 +762,124 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
                             color: Colors.white,
                           ),
                         ),
-                      ],
-                    ),
-                  if (_currentPosition != null)
-                    Positioned(
-                      top: 16,
-                      left: 16,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'GPS: ${_currentPosition!.latitude.toStringAsFixed(4)}, '
-                          '${_currentPosition!.longitude.toStringAsFixed(4)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                        // Location Display
+                        if (_currentPosition != null)
+                          Positioned(
+                            top: 16,
+                            left: 16,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              constraints: const BoxConstraints(maxWidth: 300),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white24,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.location_on,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          'GPS: ${_currentPosition!.latitude.toStringAsFixed(4)}, '
+                                          '${_currentPosition!.longitude.toStringAsFixed(4)}',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_currentPosition!.latitude != 0 || _currentPosition!.longitude != 0) ...[
+                                    const SizedBox(height: 8),
+                                    FutureBuilder<String>(
+                                      future: LocationService.getAddress(
+                                        _currentPosition!.latitude,
+                                        _currentPosition!.longitude,
+                                      ),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const Row(
+                                            children: [
+                                              SizedBox(
+                                                height: 14,
+                                                width: 14,
+                                                child: CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                  strokeWidth: 2,
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Getting location...',
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }
+                                        if (snapshot.hasError || !snapshot.hasData) {
+                                          return const Row(
+                                            children: [
+                                              Icon(
+                                                Icons.error_outline,
+                                                color: Colors.red,
+                                                size: 14,
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Location unavailable',
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }
+                                        return Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.home,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                snapshot.data!,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
+                      ],
                     ),
                   if (_isProcessing)
                     Container(
@@ -859,16 +978,18 @@ class _EmergencyCaptureScreenState extends State<EmergencyCaptureScreen> with Ti
   void _setDefaultPosition() {
     if (!mounted) return;
     setState(() => _currentPosition = Position(
-      latitude: 0,
-      longitude: 0,
-      accuracy: 0,
-      altitude: 0,
-      heading: 0,
-      speed: 0,
-      speedAccuracy: 0,
+      // Milpitas High School Theater coordinates
+      latitude: 37.4510,
+      longitude: -121.9025,
+      accuracy: 10.0,  // 10 meters accuracy
+      altitude: 0.0,
+      heading: 0.0,
+      speed: 0.0,
+      speedAccuracy: 0.0,
       timestamp: DateTime.now(),
-      altitudeAccuracy: 0,
-      headingAccuracy: 0,
+      altitudeAccuracy: 0.0,
+      headingAccuracy: 0.0,
     ));
+    debugPrint('Set default location to Milpitas High School Theater');
   }
 } 

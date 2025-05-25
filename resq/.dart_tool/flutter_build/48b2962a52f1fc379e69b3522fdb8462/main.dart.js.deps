@@ -1328,6 +1328,8 @@ file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/models/emergency_data.
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/screens/emergency_capture_screen.dart
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/screens/emergency_result_screen.dart
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/screens/emergency_services_screen.dart
+file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/services/emergency_prompt_service.dart
+file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/services/location_service.dart
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/services/openai_service.dart
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/services/p2p_service.dart
 file:///Users/abhay.singhal/projects/ByteBuddies/resq/lib/utils/permission_handler.dart

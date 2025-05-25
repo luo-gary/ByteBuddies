@@ -1,52 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`. -->
   <base href="/">
-
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="ResQ Emergency Response App">
-
-  <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="ResQ">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Geolocation permissions policy -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>ResQ</title>
   <meta http-equiv="permissions-policy" content="geolocation=self">
   <meta http-equiv="feature-policy" content="geolocation 'self'">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>ResQ</title>
-  <link rel="manifest" href="manifest.json">
-
-  <!-- Development-only geolocation permission override for localhost -->
-  <script>
-    // Patch navigator.permissions.query for geolocation on localhost
-    if (window.location.hostname === 'localhost') {
-      const originalQuery = navigator.permissions.query;
-      navigator.permissions.query = (parameters) =>
-        parameters.name === 'geolocation'
-          ? Promise.resolve({ state: 'granted' })
-          : originalQuery(parameters);
-    }
-  </script>
-
-  <!-- Flutter initialization -->
-  <script>
-    // The value below is injected by flutter build, do not touch.
-    const serviceWorkerVersion = '"3651112839"';
-  </script>
-
-  <!-- This script adds the flutter initialization JS code -->
-  <script src="flutter.js" defer></script>
-
   <style>
     body {
       background-color: #030303;
@@ -100,43 +68,56 @@
     <button id="retry-button" class="retry-button" style="display: none;">Retry</button>
   </div>
 
-  <script>
-    window.addEventListener('load', async function() {
-      let appRunner;
-      try {
-        // Initialize Flutter with improved error handling
-        await _flutter.loader.loadEntrypoint({
-          serviceWorker: {
-            serviceWorkerVersion: serviceWorkerVersion,
-            serviceWorkerUrl: 'flutter_service_worker.js?v=' + serviceWorkerVersion,
-          },
-          onEntrypointLoaded: async function(engineInitializer) {
-            try {
-              // Initialize the Flutter engine
-              appRunner = await engineInitializer.initializeEngine({
-                useColorEmoji: true,
-                renderer: "html"
-              });
-              // Run the app
-              await appRunner.runApp();
-            } catch (e) {
-              console.error('Error initializing Flutter engine:', e);
-              document.querySelector('#error-text').textContent = 'Error initializing Flutter engine: ' + e;
-              document.querySelector('#error-text').style.display = 'block';
-              document.querySelector('#retry-button').style.display = 'block';
-            }
-          }
-        });
-      } catch (e) {
-        console.error('Error loading Flutter:', e);
-        document.querySelector('#error-text').textContent = 'Error loading Flutter: ' + e;
-        document.querySelector('#error-text').style.display = 'block';
-        document.querySelector('#retry-button').style.display = 'block';
-      }
-    });
+  <!-- Include flutter.js -->
+  <script src="flutter.js" defer></script>
 
-    document.querySelector('#retry-button').addEventListener('click', function() {
-      window.location.reload();
+  <!-- Safe init logic after flutter.js is loaded -->
+  <script>
+    const serviceWorkerVersion = '"1847334777"';
+
+    window.addEventListener('load', async function () {
+      const loadingText = document.querySelector('#loading-text');
+      const errorText = document.querySelector('#error-text');
+      const retryButton = document.querySelector('#retry-button');
+
+      function showError(e) {
+        console.error('Error loading Flutter:', e);
+        errorText.textContent = 'Error loading Flutter: ' + (e.message || e.toString());
+        errorText.style.display = 'block';
+        retryButton.style.display = 'block';
+      }
+
+      try {
+        // Wait until flutter.js has defined window.flutter
+        const waitForFlutter = () => new Promise((resolve, reject) => {
+          const timeout = 5000;
+          const interval = 100;
+          let waited = 0;
+
+          (function check() {
+            if (window._flutter?.loader) {
+              resolve(window._flutter.loader);
+            } else if (waited >= timeout) {
+              reject(new Error('Flutter.js did not load in time'));
+            } else {
+              waited += interval;
+              setTimeout(check, interval);
+            }
+          })();
+        });
+        
+        const loader = await waitForFlutter();
+        const engineInitializer = await loader.loadEntrypoint({ serviceWorker: { serviceWorkerVersion } });
+        const appRunner = await engineInitializer.initializeEngine();
+        await appRunner.runApp();
+
+      } catch (e) {
+        showError(e);
+      }
+
+      retryButton.addEventListener('click', function () {
+        window.location.reload();
+      });
     });
   </script>
 </body>

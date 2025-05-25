@@ -78,9 +78,68 @@ class _EmergencyServicesScreenState extends State<EmergencyServicesScreen> with 
   Future<void> _loadEmergencyData() async {
     setState(() => _isLoading = true);
     try {
-      final reports = await EmergencyData.getAllReports();
+      // Instead of loading from storage, return sample data
+      final sampleReports = [
+        EmergencyData(
+          id: '1',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
+          latitude: 37.4510,
+          longitude: -121.9025,
+          photoPath: null,
+          audioPath: null,
+          analysis: {
+            'detectedSituation': 'Fire Emergency',
+            'severity': 'High',
+            'description': 'Smoke detected in the theater backstage area. Potential electrical fire.',
+            'emergencyGuidance': 'Evacuate immediately. Fire suppression system activated. Fire department en route.'
+          },
+        ),
+        EmergencyData(
+          id: '2',
+          timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
+          latitude: 37.4510,
+          longitude: -121.9025,
+          photoPath: null,
+          audioPath: null,
+          analysis: {
+            'detectedSituation': 'Medical Emergency',
+            'severity': 'Medium',
+            'description': 'Student reported chest pain during rehearsal. Conscious and breathing.',
+            'emergencyGuidance': 'Medical assistance required. Keep patient calm and seated. Monitor vital signs.'
+          },
+        ),
+        EmergencyData(
+          id: '3',
+          timestamp: DateTime.now().subtract(const Duration(hours: 1)),
+          latitude: 37.4510,
+          longitude: -121.9025,
+          photoPath: null,
+          audioPath: null,
+          analysis: {
+            'detectedSituation': 'Security Alert',
+            'severity': 'Medium',
+            'description': 'Suspicious individual reported near theater entrance. Wearing dark clothing.',
+            'emergencyGuidance': 'Security personnel dispatched. Maintain visual contact if safe. Do not engage.'
+          },
+        ),
+        EmergencyData(
+          id: '4',
+          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
+          latitude: 37.4510,
+          longitude: -121.9025,
+          photoPath: null,
+          audioPath: null,
+          analysis: {
+            'detectedSituation': 'Structure Issue',
+            'severity': 'Low',
+            'description': 'Water leak detected in theater lobby ceiling. No immediate danger.',
+            'emergencyGuidance': 'Maintenance team notified. Area cordoned off. Reroute entrance through side doors.'
+          },
+        ),
+      ];
+
       setState(() {
-        _emergencyData = reports;
+        _emergencyData = sampleReports;
       });
     } catch (e) {
       debugPrint('Error loading emergency data: $e');
