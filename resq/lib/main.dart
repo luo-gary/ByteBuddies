@@ -178,7 +178,7 @@ class EmergencyHomePage extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'YES - Need Help Now',
+                          'Banana',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
