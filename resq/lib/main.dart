@@ -10,7 +10,7 @@ void main() {
   runZonedGuarded(() async {
     // Ensure Flutter bindings are initialized before anything else
     WidgetsFlutterBinding.ensureInitialized();
-    
+
     try {
       await dotenv.load(fileName: '.env');
     } catch (e) {
@@ -23,7 +23,8 @@ void main() {
       runApp(const MaterialApp(
         home: Scaffold(
           body: Center(
-            child: Text('Loading ResQ...', 
+            child: Text(
+              'Loading ResQ...',
               style: TextStyle(fontSize: 24),
             ),
           ),
@@ -91,7 +92,7 @@ class EmergencyHomePage extends StatelessWidget {
       await _requestPermissions(context);
       if (!context.mounted) return;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -105,7 +106,7 @@ class EmergencyHomePage extends StatelessWidget {
       await _requestPermissions(context);
       if (!context.mounted) return;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -142,7 +143,7 @@ class EmergencyHomePage extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.emergency,
-                      size: 80,
+                      size: 133,
                       color: Colors.red,
                     ),
                     const SizedBox(height: 24),
@@ -199,7 +200,7 @@ class EmergencyHomePage extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'I am Emergency Services',
+                          'I am your Emergency Services',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
