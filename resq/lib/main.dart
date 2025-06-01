@@ -199,7 +199,7 @@ class EmergencyHomePage extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          'I am Emergency Services',
+                          'I am an Emergency Services',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w500,
